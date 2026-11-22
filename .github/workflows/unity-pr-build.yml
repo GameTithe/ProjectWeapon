@@ -1,0 +1,49 @@
+name: Unity PR Build
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unity-pr-build-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  unity-build:
+    name: Unity Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out PR merge commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Check Unity project and license configuration
+        shell: bash
+        env:
+          HAS_UNITY_ACTIVATION: ${{ secrets.UNITY_EMAIL != '' && secrets.UNITY_PASSWORD != '' }}
+        run: |
+          if [[ ! -f ProjectSettings/ProjectVersion.txt || ! -f Packages/manifest.json || ! -d Assets ]]; then
+            echo "::error::The PR checkout must contain the Unity project at the repository root."
+            exit 1
+          fi
+          if [[ "$HAS_UNITY_ACTIVATION" != "true" ]]; then
+            echo "::error::Unity CI activation is unavailable. Configure the required GitHub Actions secrets for GameCI. Fork pull requests do not receive these secrets."
+            exit 1
+          fi
+
+      - name: Build Windows Player
+        uses: game-ci/unity-builder@eb1b9fba120c6e62c9fb7a7a81d6c107ce004c45 # v6.0.0
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: StandaloneWindows64
+          versioning: None
+          containerRegistryImageVersion: '4'
+          cliVersion: 'v0.1.77'
