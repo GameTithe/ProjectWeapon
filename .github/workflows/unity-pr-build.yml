@@ -47,5 +47,5 @@ jobs:
         with:
           targetPlatform: StandaloneWindows64
           versioning: None
-          containerRegistryImageVersion: '4.0.0'
+          containerRegistryImageVersion: '4'
           dockerShmSize: 1025m
