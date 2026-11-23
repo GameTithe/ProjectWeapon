@@ -1,0 +1,24 @@
+{
+  "name": "ProjectWeapon.CoinWeaponDraw.Tests",
+  "rootNamespace": "ProjectWeapon.CoinWeaponDraw.Tests",
+  "references": [
+    "ProjectWeapon.CoinWeaponDraw",
+    "ProjectWeapon.Save",
+    "ProjectWeapon.Inventory",
+    "ProjectWeapon.Weapons",
+    "ProjectWeapon.WeaponDraw",
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ]
+}

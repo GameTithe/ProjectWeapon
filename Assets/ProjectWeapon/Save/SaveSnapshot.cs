@@ -18,15 +18,18 @@ namespace ProjectWeapon.Save
         [SerializeField] private WeaponInstance[] weapons;
         [SerializeField] private CatalogSaveRecord[] catalog;
         [SerializeField] private SettlementSaveRecord[] settlements;
+        [SerializeField] private CoinWeaponDrawSaveRecord[]? coinWeaponDraws;
 
         public SaveSnapshot(long revision, long confirmedCoins, IEnumerable<WeaponInstance> weapons,
-            IEnumerable<CatalogSaveRecord> catalog, IEnumerable<SettlementSaveRecord> settlements)
+            IEnumerable<CatalogSaveRecord> catalog, IEnumerable<SettlementSaveRecord> settlements,
+            IEnumerable<CoinWeaponDrawSaveRecord>? coinWeaponDraws = null)
         {
             this.revision = revision;
             this.confirmedCoins = confirmedCoins;
             this.weapons = (weapons ?? throw new ArgumentNullException(nameof(weapons))).ToArray();
             this.catalog = (catalog ?? throw new ArgumentNullException(nameof(catalog))).ToArray();
             this.settlements = (settlements ?? throw new ArgumentNullException(nameof(settlements))).ToArray();
+            this.coinWeaponDraws = coinWeaponDraws?.ToArray();
             Validate();
         }
 
@@ -35,6 +38,23 @@ namespace ProjectWeapon.Save
         public IReadOnlyList<WeaponInstance> Weapons => Array.AsReadOnly(weapons);
         public IReadOnlyList<CatalogSaveRecord> Catalog => Array.AsReadOnly(catalog);
         public IReadOnlyList<SettlementSaveRecord> Settlements => Array.AsReadOnly(settlements);
+        public IReadOnlyList<CoinWeaponDrawSaveRecord> CoinWeaponDraws =>
+            Array.AsReadOnly(coinWeaponDraws ?? Array.Empty<CoinWeaponDrawSaveRecord>());
+
+        public bool TryGetCoinWeaponDraw(Guid requestId, out CoinWeaponDrawSaveRecord? record)
+        {
+            foreach (CoinWeaponDrawSaveRecord purchase in coinWeaponDraws ?? Array.Empty<CoinWeaponDrawSaveRecord>())
+            {
+                if (purchase.RequestId == requestId)
+                {
+                    record = purchase;
+                    return true;
+                }
+            }
+
+            record = null;
+            return false;
+        }
 
         public bool TryGetSettlement(string transactionId, out SettlementSaveRecord? record)
         {
@@ -80,6 +100,15 @@ namespace ProjectWeapon.Save
                 if (record == null || !record.IsValid ||
                     !runIds.Add(record.RunId) || !transactionIds.Add(record.TransactionId))
                     throw new InvalidDataException("A settlement record is invalid or duplicates a run or transaction ID.");
+            }
+
+            var drawRequestIds = new HashSet<Guid>();
+            var awardedInstanceIds = new HashSet<WeaponInstanceId>();
+            foreach (CoinWeaponDrawSaveRecord purchase in coinWeaponDraws ?? Array.Empty<CoinWeaponDrawSaveRecord>())
+            {
+                if (purchase == null || !purchase.IsValid || !drawRequestIds.Add(purchase.RequestId) ||
+                    !awardedInstanceIds.Add(purchase.InstanceId))
+                    throw new InvalidDataException("A coin draw receipt is invalid or duplicates a request or awarded instance ID.");
             }
         }
     }
