@@ -39,6 +39,8 @@ namespace ProjectWeapon.CoinWeaponDraw
     public sealed class CoinWeaponDrawService
     {
         public const long PrototypeSingleDrawCost = 500;
+        public const int TenDrawCount = 10;
+        public const long PrototypeTenDrawCost = PrototypeSingleDrawCost * TenDrawCount;
 
         private readonly AtomicSnapshotStore store;
         private readonly WeightedWeaponDraw draw;
@@ -64,7 +66,15 @@ namespace ProjectWeapon.CoinWeaponDraw
 
         public long Cost { get; }
 
-        public CoinWeaponDrawResult Purchase(Guid requestId, Func<int, int> nextExclusive)
+        public long TenDrawCost => checked(Cost * TenDrawCount);
+
+        public CoinWeaponDrawResult Purchase(Guid requestId, Func<int, int> nextExclusive) =>
+            Purchase(requestId, nextExclusive, awardCount: 1, cost: Cost);
+
+        public CoinWeaponDrawResult PurchaseTen(Guid requestId, Func<int, int> nextExclusive) =>
+            Purchase(requestId, nextExclusive, TenDrawCount, TenDrawCost);
+
+        private CoinWeaponDrawResult Purchase(Guid requestId, Func<int, int> nextExclusive, int awardCount, long cost)
         {
             if (requestId == Guid.Empty)
                 throw new ArgumentException("A coin draw requires a stable request ID.", nameof(requestId));
@@ -74,20 +84,26 @@ namespace ProjectWeapon.CoinWeaponDraw
                 return new CoinWeaponDrawResult(CoinWeaponDrawStatus.InsufficientFunds, null);
 
             if (current.TryGetCoinWeaponDraw(requestId, out CoinWeaponDrawSaveRecord? existing))
-                return Replay(current, existing!);
+                return Replay(current, existing!, awardCount, cost);
 
-            if (current.ConfirmedCoins < Cost)
+            if (current.ConfirmedCoins < cost)
                 return new CoinWeaponDrawResult(CoinWeaponDrawStatus.InsufficientFunds, current);
 
             long nextRevision = checked(current.Revision + 1);
-            WeaponDrawResult selected = draw.Draw(nextExclusive);
-            WeaponInstance weapon = WeaponInstance.Create(selected.DefinitionId, WeaponProvenance.Personal,
-                WeaponLocation.Warehouse());
-            long remaining = current.ConfirmedCoins - Cost;
-            var receipt = new CoinWeaponDrawSaveRecord(requestId, Cost, remaining, weapon.Id,
-                selected.DefinitionId, selected.Grade);
+            var weapons = new WeaponInstance[awardCount];
+            var awards = new CoinWeaponDrawAward[awardCount];
+            for (int index = 0; index < awardCount; index++)
+            {
+                WeaponDrawResult selected = draw.Draw(nextExclusive);
+                WeaponInstance weapon = WeaponInstance.Create(selected.DefinitionId, WeaponProvenance.Personal,
+                    WeaponLocation.Warehouse());
+                weapons[index] = weapon;
+                awards[index] = new CoinWeaponDrawAward(weapon.Id, selected.DefinitionId, selected.Grade);
+            }
 
-            var candidate = new SaveSnapshot(nextRevision, remaining, current.Weapons.Append(weapon), current.Catalog,
+            long remaining = current.ConfirmedCoins - cost;
+            var receipt = new CoinWeaponDrawSaveRecord(requestId, cost, remaining, awards);
+            var candidate = new SaveSnapshot(nextRevision, remaining, current.Weapons.Concat(weapons), current.Catalog,
                 current.Settlements, current.CoinWeaponDraws.Append(receipt));
             SnapshotCommitResult result = commit(current.Revision, candidate);
             SaveSnapshot? active = result.ActiveSnapshot;
@@ -96,7 +112,7 @@ namespace ProjectWeapon.CoinWeaponDraw
                 if (result.Status == SnapshotCommitStatus.Committed)
                     return new CoinWeaponDrawResult(CoinWeaponDrawStatus.Purchased, active, committed);
 
-                return Replay(active, committed!);
+                return Replay(active, committed!, awardCount, cost);
             }
 
             if (result.Status == SnapshotCommitStatus.RevisionConflict)
@@ -105,9 +121,10 @@ namespace ProjectWeapon.CoinWeaponDraw
             throw new InvalidDataException("The committed coin draw snapshot is missing its purchase receipt.");
         }
 
-        private CoinWeaponDrawResult Replay(SaveSnapshot snapshot, CoinWeaponDrawSaveRecord receipt)
+        private static CoinWeaponDrawResult Replay(
+            SaveSnapshot snapshot, CoinWeaponDrawSaveRecord receipt, int awardCount, long cost)
         {
-            if (receipt.Cost != Cost)
+            if (receipt.Cost != cost || receipt.AwardCount != awardCount)
                 return new CoinWeaponDrawResult(CoinWeaponDrawStatus.RequestConflict, snapshot);
 
             return new CoinWeaponDrawResult(CoinWeaponDrawStatus.AlreadyPurchased, snapshot, receipt);

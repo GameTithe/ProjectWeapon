@@ -106,9 +106,14 @@ namespace ProjectWeapon.Save
             var awardedInstanceIds = new HashSet<WeaponInstanceId>();
             foreach (CoinWeaponDrawSaveRecord purchase in coinWeaponDraws ?? Array.Empty<CoinWeaponDrawSaveRecord>())
             {
-                if (purchase == null || !purchase.IsValid || !drawRequestIds.Add(purchase.RequestId) ||
-                    !awardedInstanceIds.Add(purchase.InstanceId))
-                    throw new InvalidDataException("A coin draw receipt is invalid or duplicates a request or awarded instance ID.");
+                if (purchase == null || !purchase.IsValid || !drawRequestIds.Add(purchase.RequestId))
+                    throw new InvalidDataException("A coin draw receipt is invalid or duplicates a request ID.");
+
+                foreach (CoinWeaponDrawAward award in purchase.Awards)
+                {
+                    if (!awardedInstanceIds.Add(award.InstanceId))
+                        throw new InvalidDataException("Coin draw receipts award the same instance ID more than once.");
+                }
             }
         }
     }
