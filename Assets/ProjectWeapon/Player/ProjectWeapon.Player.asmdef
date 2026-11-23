@@ -1,0 +1,8 @@
+{
+  "name": "ProjectWeapon.Player",
+  "rootNamespace": "ProjectWeapon.Player",
+  "references": [
+    "ProjectWeapon.Run"
+  ],
+  "noEngineReferences": true
+}
