@@ -68,6 +68,10 @@ namespace ProjectWeapon.Run
         /// time, such as the scheduled completion time, so callback order does not choose the result.
         /// </summary>
         public RunResult? ProcessSignals(IEnumerable<RunSignal> signals)
+            => ProcessSignals(signals, null);
+
+        /// <summary>Evaluates one scheduled observation against the same clock sample as the frame.</summary>
+        public RunResult? ProcessSignals(IEnumerable<RunSignal> signals, Func<TimeSpan, RunSignal?>? scheduledSignal)
         {
             if (signals == null)
                 throw new ArgumentNullException(nameof(signals));
@@ -78,6 +82,9 @@ namespace ProjectWeapon.Run
 
             TimeSpan now = ReadTime();
             IEnumerable<RunSignal> frame = signals;
+            RunSignal? scheduled = scheduledSignal?.Invoke(now);
+            if (scheduled.HasValue)
+                frame = frame.Append(scheduled.Value);
             if (now >= session.Deadline)
                 frame = frame.Append(RunSignal.DeadlineReached(session.Id, session.Deadline));
 
