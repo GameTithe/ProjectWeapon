@@ -1,0 +1,6 @@
+{
+    "name": "ProjectWeapon.MovementInput.Tests",
+    "rootNamespace": "ProjectWeapon.MovementInput.Tests",
+    "references": ["ProjectWeapon.MovementInput", "Unity.InputSystem"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

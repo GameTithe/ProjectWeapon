@@ -1,0 +1,5 @@
+{
+    "name": "ProjectWeapon.MovementInput",
+    "rootNamespace": "ProjectWeapon.MovementInput",
+    "references": ["Unity.InputSystem"]
+}
