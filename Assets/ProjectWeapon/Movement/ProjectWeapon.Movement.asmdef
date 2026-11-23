@@ -1,0 +1,5 @@
+{
+    "name": "ProjectWeapon.Movement",
+    "rootNamespace": "ProjectWeapon.Movement",
+    "references": ["ProjectWeapon.MovementInput", "Unity.ugui"]
+}
