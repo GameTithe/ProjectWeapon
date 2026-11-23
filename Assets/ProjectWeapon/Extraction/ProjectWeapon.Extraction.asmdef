@@ -1,0 +1,9 @@
+{
+    "name": "ProjectWeapon.Extraction",
+    "rootNamespace": "ProjectWeapon.Extraction",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Run"
+    ],
+    "noEngineReferences": true
+}

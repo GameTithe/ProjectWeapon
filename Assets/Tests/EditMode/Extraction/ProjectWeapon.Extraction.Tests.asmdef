@@ -1,0 +1,15 @@
+{
+    "name": "ProjectWeapon.Extraction.Tests",
+    "rootNamespace": "ProjectWeapon.Extraction.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Run"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}
