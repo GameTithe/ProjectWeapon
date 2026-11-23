@@ -1,0 +1,10 @@
+{
+  "name": "ProjectWeapon.CoinWeaponDraw",
+  "rootNamespace": "ProjectWeapon.CoinWeaponDraw",
+  "references": [
+    "ProjectWeapon.Save",
+    "ProjectWeapon.Inventory",
+    "ProjectWeapon.Weapons",
+    "ProjectWeapon.WeaponDraw"
+  ]
+}

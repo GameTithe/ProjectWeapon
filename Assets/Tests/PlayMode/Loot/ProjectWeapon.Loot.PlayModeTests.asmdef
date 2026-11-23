@@ -1,0 +1,12 @@
+{
+  "name": "ProjectWeapon.Loot.PlayModeTests",
+  "rootNamespace": "ProjectWeapon.Loot.PlayModeTests",
+  "references": [
+    "ProjectWeapon.Loot",
+    "ProjectWeapon.Inventory",
+    "ProjectWeapon.Weapons"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
