@@ -1,0 +1,11 @@
+{
+  "name": "ProjectWeapon.Tests.Framework.PlayMode",
+  "rootNamespace": "ProjectWeapon.Tests.Framework.PlayMode",
+  "references": [
+    "ProjectWeapon.Tests.Framework.Support"
+  ],
+  "autoReferenced": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
