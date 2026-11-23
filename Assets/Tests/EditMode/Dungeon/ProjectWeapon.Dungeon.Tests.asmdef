@@ -3,6 +3,8 @@
   "rootNamespace": "ProjectWeapon.Dungeon.Tests",
   "references": [
     "ProjectWeapon.Dungeon",
+    "ProjectWeapon.Extraction",
+    "ProjectWeapon.Run",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],
