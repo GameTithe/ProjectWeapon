@@ -1,0 +1,7 @@
+{
+  "name": "ProjectWeapon.Weapons.Tests",
+  "rootNamespace": "ProjectWeapon.Weapons.Tests",
+  "references": ["ProjectWeapon.Weapons"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"]
+}
