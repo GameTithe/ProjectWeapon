@@ -1,0 +1,8 @@
+{
+  "name": "ProjectWeapon.Tests.Framework.Support",
+  "rootNamespace": "ProjectWeapon.Tests.Framework",
+  "autoReferenced": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
