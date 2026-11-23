@@ -64,6 +64,23 @@ namespace ProjectWeapon.Save
                 return ReadActive()?.snapshot;
         }
 
+        public (SaveSnapshot? Snapshot, bool Upgraded) UpgradeLegacySnapshot()
+        {
+            lock (pathLock)
+            {
+                using FileStream writerLock = OpenWriterLock();
+                string? original = ReadActiveJson();
+                if (original == null)
+                    return (null, false);
+
+                var current = SnapshotCodec.DecodeUpgradeInput(original);
+                if (current.requiresUpgrade)
+                    Install(SnapshotCodec.Encode(current.snapshot).bytes, hasActiveSnapshot: true);
+
+                return (current.snapshot, current.requiresUpgrade);
+            }
+        }
+
         public SnapshotCommitResult Commit(long expectedRevision, SaveSnapshot next)
         {
             if (next == null)
@@ -76,9 +93,7 @@ namespace ProjectWeapon.Save
             var encoded = SnapshotCodec.Encode(next);
             lock (pathLock)
             {
-                Directory.CreateDirectory(directoryPath);
-                using var writerLock = new FileStream(activePath + ".lock", FileMode.OpenOrCreate,
-                    FileAccess.ReadWrite, FileShare.None);
+                using FileStream writerLock = OpenWriterLock();
 
                 var active = ReadActive();
                 if (active.HasValue && active.Value.snapshot.Revision == next.Revision &&
@@ -88,30 +103,47 @@ namespace ProjectWeapon.Save
                 if ((active?.snapshot.Revision ?? 0) != expectedRevision)
                     return new SnapshotCommitResult(SnapshotCommitStatus.RevisionConflict, active?.snapshot);
 
-                string tempPath = activePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
-                try
-                {
-                    files.WriteAndFlush(tempPath, encoded.bytes);
-                    files.Activate(tempPath, activePath, active.HasValue);
-                }
-                finally
-                {
-                    // A temp file is never considered by Load. Cleanup errors do not determine the commit result.
-                    TryDeleteTemp(tempPath);
-                }
+                Install(encoded.bytes, active.HasValue);
 
                 return new SnapshotCommitResult(SnapshotCommitStatus.Committed, next);
             }
         }
 
+        private FileStream OpenWriterLock()
+        {
+            Directory.CreateDirectory(directoryPath);
+            return new FileStream(activePath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        }
+
+        private void Install(byte[] bytes, bool hasActiveSnapshot)
+        {
+            string tempPath = activePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                files.WriteAndFlush(tempPath, bytes);
+                files.Activate(tempPath, activePath, hasActiveSnapshot);
+            }
+            finally
+            {
+                // A temp file is never considered by Load. Cleanup errors do not determine the commit result.
+                TryDeleteTemp(tempPath);
+            }
+        }
+
         private (SaveSnapshot snapshot, string checksum)? ReadActive()
+        {
+            string? json = ReadActiveJson();
+            return json == null ? null : SnapshotCodec.Decode(json);
+        }
+
+        private string? ReadActiveJson()
         {
             try
             {
                 using var stream = new FileStream(activePath, FileMode.Open, FileAccess.Read,
                     FileShare.Read | FileShare.Delete);
                 using var reader = new StreamReader(stream, SnapshotCodec.Utf8, detectEncodingFromByteOrderMarks: false);
-                return SnapshotCodec.Decode(reader.ReadToEnd());
+                return reader.ReadToEnd();
             }
             catch (FileNotFoundException)
             {
