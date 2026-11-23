@@ -1,0 +1,6 @@
+{
+  "name": "ProjectWeapon.Weapons.Editor",
+  "rootNamespace": "ProjectWeapon.Weapons.Editor",
+  "references": ["ProjectWeapon.Weapons"],
+  "includePlatforms": ["Editor"]
+}
