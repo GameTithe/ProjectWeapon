@@ -1,0 +1,13 @@
+{
+  "name": "ProjectWeapon.ExtractionPresentation.Tests",
+  "rootNamespace": "ProjectWeapon.ExtractionPresentation.Tests",
+  "references": [
+    "ProjectWeapon.ExtractionPresentation"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

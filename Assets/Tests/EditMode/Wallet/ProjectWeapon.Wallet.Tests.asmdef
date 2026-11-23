@@ -1,0 +1,22 @@
+{
+  "name": "ProjectWeapon.Wallet.Tests",
+  "rootNamespace": "ProjectWeapon.Wallet.Tests",
+  "references": [
+    "ProjectWeapon.Wallet",
+    "ProjectWeapon.Balance",
+    "ProjectWeapon.Run",
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ]
+}
