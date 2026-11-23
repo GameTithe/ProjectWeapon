@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 641735a0cf694af1d87f1a111d5ababb, type: 3}
+  m_Name: PrototypeStarterWeaponCatalog
+  m_EditorClassIdentifier: ProjectWeapon.Weapons::ProjectWeapon.Weapons.WeaponCatalog
+  definitions:
+  - {fileID: 11400000, guid: abee15fdc1098a14b880d7cf8829853f, type: 2}
+  - {fileID: 11400000, guid: c270719e2f0210949b1fa656876f6246, type: 2}
+  - {fileID: 11400000, guid: aa7b17bbaae9e1b418679c56b2ea9374, type: 2}
+  - {fileID: 11400000, guid: 01ca09136bd11ab4194164a1674d6f4c, type: 2}
+  - {fileID: 11400000, guid: a33ac7879b7c5d04ba2600c0724f923a, type: 2}
