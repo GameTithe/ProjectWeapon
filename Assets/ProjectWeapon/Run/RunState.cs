@@ -48,15 +48,13 @@ namespace ProjectWeapon.Run
             return true;
         }
 
+        public bool CanBeginExtraction(RunId id, bool isInRange)
+            => TryGetExtractionStartTime(id, isInRange, out _);
+
         // The adapter verifies that the player can interact with the extraction point.
         public ExtractionAttempt? TryBeginExtraction(RunId id, bool isInRange)
         {
-            RunSession? session = CurrentRun;
-            if (Phase != RunPhase.Exploring || session == null || session.Id != id || !isInRange)
-                return null;
-
-            TimeSpan now = ReadTime();
-            if (now >= session.Deadline || now > TimeSpan.MaxValue - ExtractionDuration)
+            if (!TryGetExtractionStartTime(id, isInRange, out TimeSpan now))
                 return null;
 
             var attempt = new ExtractionAttempt(checked(++lastAttemptId), now, now + ExtractionDuration);
@@ -127,6 +125,19 @@ namespace ProjectWeapon.Run
             Result = null;
             Phase = RunPhase.Town;
             return true;
+        }
+
+        private bool TryGetExtractionStartTime(RunId id, bool isInRange, out TimeSpan now)
+        {
+            RunSession? session = CurrentRun;
+            if (Phase != RunPhase.Exploring || session == null || session.Id != id || !isInRange)
+            {
+                now = TimeSpan.Zero;
+                return false;
+            }
+
+            now = ReadTime();
+            return now < session.Deadline && now <= TimeSpan.MaxValue - ExtractionDuration;
         }
 
         private bool MatchesActiveExtraction(RunSignal signal)
