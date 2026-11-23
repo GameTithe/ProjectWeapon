@@ -1,0 +1,11 @@
+{
+  "name": "ProjectWeapon.LootUI",
+  "rootNamespace": "ProjectWeapon.LootUI",
+  "references": [
+    "ProjectWeapon.Loot",
+    "ProjectWeapon.Inventory",
+    "ProjectWeapon.Weapons",
+    "UnityEngine.UI",
+    "Unity.TextMeshPro"
+  ]
+}

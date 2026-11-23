@@ -1,9 +1,11 @@
 #nullable enable
 
 using System;
+using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using ProjectWeapon.Inventory;
 using UnityEngine;
 
 namespace ProjectWeapon.Save
@@ -11,6 +13,8 @@ namespace ProjectWeapon.Save
     internal static class SnapshotCodec
     {
         private const int FormatVersion = 1;
+        private const int SyntheticTestVersion = -1;
+        private const string SyntheticFixtureId = "ProjectWeapon.KAN82.TestFixture";
         internal static readonly UTF8Encoding Utf8 = new UTF8Encoding(false, true);
 
         internal static (byte[] bytes, string checksum) Encode(SaveSnapshot snapshot)
@@ -31,16 +35,53 @@ namespace ProjectWeapon.Save
         {
             Envelope envelope = Parse<Envelope>(json);
             if (envelope.formatVersion != FormatVersion)
-                throw new InvalidDataException($"Unsupported snapshot format version {envelope.formatVersion}.");
+                throw UnsupportedVersion(envelope.formatVersion);
 
-            if (string.IsNullOrEmpty(envelope.payload) ||
-                !StringComparer.Ordinal.Equals(envelope.checksum, Checksum(envelope.payload)))
-                throw new InvalidDataException("The snapshot payload is incomplete or its checksum does not match.");
+            return DecodeCurrent(envelope);
+        }
 
+        internal static (SaveSnapshot snapshot, bool requiresUpgrade) DecodeUpgradeInput(string json)
+        {
+            Envelope envelope = Parse<Envelope>(json);
+            if (envelope.formatVersion == FormatVersion)
+                return (DecodeCurrent(envelope).snapshot, false);
+
+            if (envelope.formatVersion != SyntheticTestVersion)
+                throw UnsupportedVersion(envelope.formatVersion);
+
+            ValidateChecksum(envelope);
+            var fixture = Parse<SyntheticTestSnapshot>(envelope.payload);
+            if (!StringComparer.Ordinal.Equals(fixture.fixtureId, SyntheticFixtureId))
+                throw new InvalidDataException("The previous test format requires the KAN-82 fixture marker.");
+
+            if (!long.TryParse(fixture.coins, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out long coins))
+                throw new InvalidDataException("The synthetic snapshot coin balance is not a valid integer.");
+
+            if (fixture.weapons == null || fixture.catalog == null)
+                throw new InvalidDataException("The synthetic snapshot is missing a required collection.");
+
+            var snapshot = new SaveSnapshot(fixture.revision, coins, fixture.weapons, fixture.catalog,
+                fixture.settlements ?? Array.Empty<SettlementSaveRecord>());
+            return (snapshot, true);
+        }
+
+        private static (SaveSnapshot snapshot, string checksum) DecodeCurrent(Envelope envelope)
+        {
+            ValidateChecksum(envelope);
             SaveSnapshot snapshot = Parse<SaveSnapshot>(envelope.payload);
             snapshot.Validate();
             return (snapshot, envelope.checksum);
         }
+
+        private static void ValidateChecksum(Envelope envelope)
+        {
+            if (string.IsNullOrEmpty(envelope.payload) ||
+                !StringComparer.Ordinal.Equals(envelope.checksum, Checksum(envelope.payload)))
+                throw new InvalidDataException("The snapshot payload is incomplete or its checksum does not match.");
+        }
+
+        private static InvalidDataException UnsupportedVersion(int version) =>
+            new InvalidDataException($"Unsupported snapshot format version {version}.");
 
         private static T Parse<T>(string value) where T : class
         {
@@ -67,6 +108,17 @@ namespace ProjectWeapon.Save
             public int formatVersion;
             public string payload = string.Empty;
             public string checksum = string.Empty;
+        }
+
+        [Serializable]
+        private sealed class SyntheticTestSnapshot
+        {
+            public string fixtureId = string.Empty;
+            public long revision = 0;
+            public string coins = string.Empty;
+            public WeaponInstance[]? weapons = null;
+            public CatalogSaveRecord[]? catalog = null;
+            public SettlementSaveRecord[]? settlements = null;
         }
     }
 }

@@ -5,7 +5,14 @@ namespace ProjectWeapon.Weapons
 {
     public static class WeaponDefinitionValidator
     {
-        public static IReadOnlyList<string> Validate(IEnumerable<WeaponDefinition> definitions)
+        public static IReadOnlyList<string> Validate(IEnumerable<WeaponDefinition> definitions) =>
+            Validate(definitions, validateActionReferences: true);
+
+        public static IReadOnlyList<string> ValidateCatalogMetadata(IEnumerable<WeaponDefinition> definitions) =>
+            Validate(definitions, validateActionReferences: false);
+
+        private static IReadOnlyList<string> Validate(
+            IEnumerable<WeaponDefinition> definitions, bool validateActionReferences)
         {
             if (definitions == null)
             {
@@ -41,6 +48,14 @@ namespace ProjectWeapon.Weapons
                 {
                     errors.Add($"{label}: Grade must be between 1 and 5.");
                 }
+
+                if (!Enum.IsDefined(typeof(WeaponKind), definition.Kind))
+                {
+                    errors.Add($"{label}: Weapon kind is unsupported.");
+                }
+
+                if (!validateActionReferences)
+                    continue;
 
                 if (definition.BasicAttack == null)
                 {

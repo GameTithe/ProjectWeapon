@@ -1,0 +1,8 @@
+{
+  "name": "ProjectWeapon.Wallet",
+  "rootNamespace": "ProjectWeapon.Wallet",
+  "references": [
+    "ProjectWeapon.Balance",
+    "ProjectWeapon.Run"
+  ]
+}
