@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b57e5a3be9ac132a596d63af6433c531, type: 3}
+  m_Name: PrototypeZoneCatalog
+  m_EditorClassIdentifier:
+  zones:
+  - zoneId: 1
+    theme: 버려진 폐성
+    recommendedGrade: 1
+    minimumRewardGrade: 1
+    maximumRewardGrade: 2
+    timeLimitSeconds: 480
+    rewardProbabilityBasisPoints: 34210000dc050000000000000000000000000000
+  - zoneId: 2
+    theme: 지하 감옥
+    recommendedGrade: 2
+    minimumRewardGrade: 1
+    maximumRewardGrade: 3
+    timeLimitSeconds: 600
+    rewardProbabilityBasisPoints: 9411000094110000e80300000000000000000000
+  - zoneId: 3
+    theme: 저주받은 숲
+    recommendedGrade: 3
+    minimumRewardGrade: 2
+    maximumRewardGrade: 4
+    timeLimitSeconds: 720
+    rewardProbabilityBasisPoints: 000000009411000094110000e803000000000000
+  - zoneId: 4
+    theme: 마왕의 요새
+    recommendedGrade: 4
+    minimumRewardGrade: 3
+    maximumRewardGrade: 5
+    timeLimitSeconds: 720
+    rewardProbabilityBasisPoints: 000000000000000070170000ac0d0000f4010000
+  - zoneId: 5
+    theme: 심연의 성역
+    recommendedGrade: 5
+    minimumRewardGrade: 4
+    maximumRewardGrade: 5
+    timeLimitSeconds: 900
+    rewardProbabilityBasisPoints: 00000000000000000000000034210000dc050000
