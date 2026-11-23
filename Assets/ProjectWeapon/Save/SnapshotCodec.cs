@@ -40,6 +40,19 @@ namespace ProjectWeapon.Save
             return DecodeCurrent(envelope);
         }
 
+        internal static (SaveSnapshot? snapshot, int formatVersion) DecodeForRecovery(string json)
+        {
+            Envelope envelope = Parse<Envelope>(json);
+            if (envelope.formatVersion == FormatVersion)
+                return (DecodeCurrent(envelope).snapshot, envelope.formatVersion);
+
+            ValidateChecksum(envelope);
+            if (envelope.formatVersion == 0)
+                throw new InvalidDataException("The snapshot format version is missing.");
+
+            return (null, envelope.formatVersion);
+        }
+
         internal static (SaveSnapshot snapshot, bool requiresUpgrade) DecodeUpgradeInput(string json)
         {
             Envelope envelope = Parse<Envelope>(json);
@@ -85,6 +98,9 @@ namespace ProjectWeapon.Save
 
         private static T Parse<T>(string value) where T : class
         {
+            if (!value.TrimEnd().EndsWith("}", StringComparison.Ordinal))
+                throw new InvalidDataException("The snapshot JSON object is incomplete.");
+
             try
             {
                 return JsonUtility.FromJson<T>(value) ??
