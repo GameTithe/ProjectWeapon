@@ -1,0 +1,8 @@
+{
+  "name": "ProjectWeapon.Save",
+  "rootNamespace": "ProjectWeapon.Save",
+  "references": [
+    "ProjectWeapon.Inventory",
+    "ProjectWeapon.Weapons"
+  ]
+}
