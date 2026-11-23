@@ -1,0 +1,5 @@
+{
+    "name": "ProjectWeapon.AutoAttack",
+    "rootNamespace": "ProjectWeapon.AutoAttack",
+    "references": ["ProjectWeapon.Combat", "ProjectWeapon.Run", "ProjectWeapon.Weapons"]
+}
