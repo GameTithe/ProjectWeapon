@@ -1,6 +1,6 @@
 # KAN-94 손상 저장 복구
 
-`AtomicSnapshotStore.LoadWithRecovery`는 현재 빌드의 무기 원형 ID를 확인할 수 있는 카탈로그 조회 함수를 받는다. 활성 파일의 UTF-8·JSON·포맷·체크섬·필수 데이터·중복 ID를 확인한 뒤 저장된 무기 실물, 도감, 뽑기 영수증이 참조하는 원형을 조회한다. 활성 파일이 없거나 손상되면 같은 검사를 통과한 백업을 반환한다. 기존 `Load()`는 활성 파일만 읽으며, 기존 `Commit()`의 리비전 규칙을 사용한다. [KAN-94](https://gametithe.atlassian.net/browse/KAN-94) · [KAN-73](https://gametithe.atlassian.net/browse/KAN-73) · [KAN-82](https://gametithe.atlassian.net/browse/KAN-82)
+`AtomicSnapshotStore.LoadWithRecovery`는 현재 빌드의 무기 원형 ID를 확인할 수 있는 카탈로그 조회 함수를 받는다. 활성 파일의 UTF-8·JSON·포맷·체크섬·필수 데이터·중복 ID를 확인한 뒤 저장된 무기 실물, 도감, 뽑기 영수증이 참조하는 원형을 조회한다. 활성 파일이 없거나 손상되면 같은 검사를 통과한 백업을 반환한다. 기존 `Load()`는 활성 파일만 읽으며, 기존 `Commit()`의 리비전 규칙을 사용한다. 10회 추첨 영수증은 모든 지급품의 원형을 검증한다. 이미 소비되거나 상실해 현재 인벤토리에 없는 실물이라도 원형이 유효하면 영수증을 유지한다. [KAN-109](https://gametithe.atlassian.net/browse/KAN-109) [KAN-94](https://gametithe.atlassian.net/browse/KAN-94) · [KAN-73](https://gametithe.atlassian.net/browse/KAN-73) · [KAN-82](https://gametithe.atlassian.net/browse/KAN-82)
 
 | 상태 | 결과 |
 | --- | --- |

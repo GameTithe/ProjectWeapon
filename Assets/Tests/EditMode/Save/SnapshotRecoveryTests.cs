@@ -193,6 +193,50 @@ namespace ProjectWeapon.Save.Tests
             Assert.That(File.Exists(path + ".bak"), Is.True);
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void LaterDrawAwardReferenceIsCheckedEvenWhenWeaponIsNoLongerInInventory(bool missingDefinition)
+        {
+            var store = new AtomicSnapshotStore(path);
+            store.Commit(0, Sample(1));
+
+            SaveSnapshot sample = Sample(2);
+            var awards = new CoinWeaponDrawAward[10];
+            awards[0] = new CoinWeaponDrawAward(sample.Weapons[0].Id, Known, 1);
+            for (int index = 1; index < awards.Length; index++)
+                awards[index] = new CoinWeaponDrawAward(WeaponInstanceId.New(), Known, 1);
+
+            WeaponInstanceId lastAward = awards[awards.Length - 1].InstanceId;
+            if (missingDefinition)
+                awards[awards.Length - 1] = new CoinWeaponDrawAward(lastAward, Missing, 1);
+
+            Assert.That(lastAward, Is.Not.EqualTo(sample.Weapons[0].Id));
+            Assert.That(lastAward, Is.Not.EqualTo(sample.Weapons[1].Id));
+
+            var purchase = new CoinWeaponDrawSaveRecord(Guid.NewGuid(), 10, sample.ConfirmedCoins, awards);
+            var active = new SaveSnapshot(2, sample.ConfirmedCoins, sample.Weapons, sample.Catalog,
+                sample.Settlements, new[] { purchase });
+            store.Commit(1, active);
+            byte[] original = File.ReadAllBytes(path);
+
+            SnapshotLoadResult result = store.LoadWithRecovery(IsKnown);
+
+            if (missingDefinition)
+            {
+                Assert.That(result.Status, Is.EqualTo(SnapshotLoadStatus.RecoveredFromBackup));
+                Assert.That(result.Snapshot!.Revision, Is.EqualTo(1));
+                Assert.That(result.ActiveIssue, Does.Contain(lastAward.ToString()).And.Contain("missing-sword"));
+            }
+            else
+            {
+                Assert.That(result.Status, Is.EqualTo(SnapshotLoadStatus.Healthy));
+                Assert.That(result.Snapshot!.CoinWeaponDraws[0].AwardCount, Is.EqualTo(10));
+                Assert.That(result.Snapshot.CoinWeaponDraws[0].Awards[9].InstanceId, Is.EqualTo(lastAward));
+            }
+
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(original));
+        }
+
         private static bool IsKnown(WeaponDefinitionId id) => id.Equals(Known);
 
         private static SaveSnapshot Sample(long revision, string? missingReference = null)

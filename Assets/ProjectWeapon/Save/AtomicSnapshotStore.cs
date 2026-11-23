@@ -210,8 +210,11 @@ namespace ProjectWeapon.Save
 
             foreach (var purchase in snapshot.CoinWeaponDraws)
             {
-                if (!definitionExists(purchase.DefinitionId))
-                    return $"Coin draw '{purchase.RequestId}' references missing definition '{purchase.DefinitionId}'.";
+                foreach (var award in purchase.Awards)
+                {
+                    if (!definitionExists(award.DefinitionId))
+                        return $"Coin draw '{purchase.RequestId}' award '{award.InstanceId}' references missing definition '{award.DefinitionId}'.";
+                }
             }
 
             return null;
