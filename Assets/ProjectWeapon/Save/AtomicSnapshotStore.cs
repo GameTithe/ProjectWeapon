@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
+using ProjectWeapon.Weapons;
 
 [assembly: InternalsVisibleTo("ProjectWeapon.Save.Tests")]
 
@@ -31,6 +32,8 @@ namespace ProjectWeapon.Save
 
     public sealed class AtomicSnapshotStore
     {
+        internal const string BackupSuffix = ".bak";
+
         private static readonly ConcurrentDictionary<string, object> PathLocks =
             new ConcurrentDictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
@@ -62,6 +65,33 @@ namespace ProjectWeapon.Save
         {
             lock (pathLock)
                 return ReadActive()?.snapshot;
+        }
+
+        /// <summary>Reads a valid snapshot or backup without changing either file.</summary>
+        public SnapshotLoadResult LoadWithRecovery(Func<WeaponDefinitionId, bool> definitionExists)
+        {
+            if (definitionExists == null)
+                throw new ArgumentNullException(nameof(definitionExists));
+
+            lock (pathLock)
+            {
+                var active = ReadForRecovery(activePath, definitionExists);
+                if (active.status == SnapshotLoadStatus.Healthy || active.status == SnapshotLoadStatus.UnsupportedVersion)
+                    return new SnapshotLoadResult(active.status, active.snapshot, active.issue);
+
+                var backup = ReadForRecovery(activePath + BackupSuffix, definitionExists);
+                if (backup.status == SnapshotLoadStatus.Healthy)
+                    return new SnapshotLoadResult(SnapshotLoadStatus.RecoveredFromBackup, backup.snapshot, active.issue);
+
+                if (active.status == SnapshotLoadStatus.Missing && backup.status == SnapshotLoadStatus.Missing)
+                    return new SnapshotLoadResult(SnapshotLoadStatus.Missing, null);
+
+                SnapshotLoadStatus status = active.status == SnapshotLoadStatus.Missing
+                    && backup.status == SnapshotLoadStatus.UnsupportedVersion
+                    ? SnapshotLoadStatus.UnsupportedVersion
+                    : SnapshotLoadStatus.Corrupt;
+                return new SnapshotLoadResult(status, null, active.issue, backup.issue);
+            }
         }
 
         public (SaveSnapshot? Snapshot, bool Upgraded) UpgradeLegacySnapshot()
@@ -136,11 +166,64 @@ namespace ProjectWeapon.Save
             return json == null ? null : SnapshotCodec.Decode(json);
         }
 
-        private string? ReadActiveJson()
+        private static (SnapshotLoadStatus status, SaveSnapshot? snapshot, string? issue) ReadForRecovery(
+            string path, Func<WeaponDefinitionId, bool> definitionExists)
+        {
+            SaveSnapshot? snapshot;
+            try
+            {
+                string? json = ReadSnapshotJson(path);
+                if (json == null)
+                    return (SnapshotLoadStatus.Missing, null, "The snapshot file is missing.");
+
+                var decoded = SnapshotCodec.DecodeForRecovery(json);
+                snapshot = decoded.snapshot;
+                if (snapshot == null)
+                    return (SnapshotLoadStatus.UnsupportedVersion, null,
+                        $"Unsupported snapshot format version {decoded.formatVersion}.");
+            }
+            catch (InvalidDataException error)
+            {
+                return (SnapshotLoadStatus.Corrupt, null, error.Message);
+            }
+
+            string? issue = FindMissingDefinition(snapshot, definitionExists);
+            return issue == null
+                ? (SnapshotLoadStatus.Healthy, snapshot, null)
+                : (SnapshotLoadStatus.Corrupt, null, issue);
+        }
+
+        private static string? FindMissingDefinition(SaveSnapshot snapshot,
+            Func<WeaponDefinitionId, bool> definitionExists)
+        {
+            foreach (var weapon in snapshot.Weapons)
+            {
+                if (!definitionExists(weapon.DefinitionId))
+                    return $"Weapon '{weapon.Id}' references missing definition '{weapon.DefinitionId}'.";
+            }
+
+            foreach (var record in snapshot.Catalog)
+            {
+                if (!definitionExists(record.DefinitionId))
+                    return $"Catalog record references missing definition '{record.DefinitionId}'.";
+            }
+
+            foreach (var purchase in snapshot.CoinWeaponDraws)
+            {
+                if (!definitionExists(purchase.DefinitionId))
+                    return $"Coin draw '{purchase.RequestId}' references missing definition '{purchase.DefinitionId}'.";
+            }
+
+            return null;
+        }
+
+        private string? ReadActiveJson() => ReadSnapshotJson(activePath);
+
+        private static string? ReadSnapshotJson(string path)
         {
             try
             {
-                using var stream = new FileStream(activePath, FileMode.Open, FileAccess.Read,
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
                     FileShare.Read | FileShare.Delete);
                 using var reader = new StreamReader(stream, SnapshotCodec.Utf8, detectEncodingFromByteOrderMarks: false);
                 return reader.ReadToEnd();
@@ -155,7 +238,7 @@ namespace ProjectWeapon.Save
             }
             catch (DecoderFallbackException error)
             {
-                throw new InvalidDataException("The active snapshot contains invalid UTF-8.", error);
+                throw new InvalidDataException("The snapshot contains invalid UTF-8.", error);
             }
         }
 
@@ -186,7 +269,7 @@ namespace ProjectWeapon.Save
         internal virtual void Activate(string tempPath, string activePath, bool hasActiveSnapshot)
         {
             if (hasActiveSnapshot)
-                File.Replace(tempPath, activePath, destinationBackupFileName: null);
+                File.Replace(tempPath, activePath, destinationBackupFileName: activePath + AtomicSnapshotStore.BackupSuffix);
             else
                 File.Move(tempPath, activePath);
         }
