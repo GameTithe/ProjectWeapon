@@ -1,0 +1,13 @@
+{
+    "name": "ProjectWeapon.AutoAttack.Tests",
+    "rootNamespace": "ProjectWeapon.AutoAttack.Tests",
+    "references": [
+        "ProjectWeapon.AutoAttack",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
