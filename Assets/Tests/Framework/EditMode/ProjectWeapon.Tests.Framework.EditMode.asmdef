@@ -1,0 +1,14 @@
+{
+  "name": "ProjectWeapon.Tests.Framework.EditMode",
+  "rootNamespace": "ProjectWeapon.Tests.Framework.EditMode",
+  "references": [
+    "ProjectWeapon.Tests.Framework.Support"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
