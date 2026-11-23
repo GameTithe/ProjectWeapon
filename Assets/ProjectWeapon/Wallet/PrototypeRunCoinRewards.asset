@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9df0c6b5e3d4c48f95682f358241dbb8, type: 3}
+  m_Name: PrototypeRunCoinRewards
+  m_EditorClassIdentifier: ProjectWeapon.Balance::ProjectWeapon.Balance.BalanceSettings
+  schemaVersion: 1
+  revision: 1
+  ranges:
+  - key: run.coins.regular
+    approval: 0
+    kind: 2
+    minimum: 2
+    maximum: 5
+  - key: run.coins.elite
+    approval: 0
+    kind: 2
+    minimum: 15
+    maximum: 30
+  - key: run.coins.chest
+    approval: 0
+    kind: 2
+    minimum: 20
+    maximum: 50
+  - key: run.coins.boss
+    approval: 0
+    kind: 2
+    minimum: 100
+    maximum: 200
+  distributions: []
