@@ -1,0 +1,14 @@
+{
+    "name": "ProjectWeapon.WeaponDraw.Tests",
+    "rootNamespace": "ProjectWeapon.WeaponDraw.Tests",
+    "references": [
+        "ProjectWeapon.WeaponDraw",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

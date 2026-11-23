@@ -1,0 +1,9 @@
+{
+    "name": "ProjectWeapon.WeaponDraw",
+    "rootNamespace": "ProjectWeapon.WeaponDraw",
+    "references": [
+        "ProjectWeapon.Balance",
+        "ProjectWeapon.Weapons"
+    ],
+    "noEngineReferences": true
+}
