@@ -34,7 +34,7 @@ namespace ProjectWeapon.CombatStatusUI
             RectTransform healthCard = Card(bar, "Health", 1.6f);
             var healthText = Rect(healthCard, "HealthValue", new Vector2(0, .25f), Vector2.one,
                 new Vector2(10, 0), new Vector2(-10, 0));
-            health = Label(healthText, font, "HP —", 21, TextAlignmentOptions.MidlineLeft);
+            health = Label(healthText, font, "HP --", 21, TextAlignmentOptions.MidlineLeft);
             var healthTrack = Rect(healthCard, "HealthTrack", Vector2.zero, new Vector2(1, .25f),
                 new Vector2(10, 5), new Vector2(-10, 0));
             Image(healthTrack, new Color32(73, 40, 53, 255));
