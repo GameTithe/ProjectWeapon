@@ -1,0 +1,9 @@
+﻿{
+  "name": "ProjectWeapon.LevelPlayTest",
+  "rootNamespace": "ProjectWeapon.LevelPlayTest",
+  "references": [
+    "ProjectWeapon.Ad",
+    "ProjectWeapon.Accounts",
+    "Unity.LevelPlay"
+  ]
+}

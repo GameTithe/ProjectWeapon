@@ -1,0 +1,21 @@
+﻿{
+  "name": "ProjectWeapon.LevelPlayTest.Tests",
+  "rootNamespace": "ProjectWeapon.LevelPlayTest.Tests",
+  "references": [
+    "ProjectWeapon.LevelPlayTest",
+    "ProjectWeapon.LevelPlayTestAuthority",
+    "ProjectWeapon.AdRewardsAuthority",
+    "ProjectWeapon.Accounts",
+    "ProjectWeapon.Ad",
+    "ProjectWeapon.Weapons",
+    "ProjectWeapon.Inventory",
+    "ProjectWeapon.WeaponDraw",
+    "Unity.LevelPlay"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

@@ -1,0 +1,11 @@
+﻿{
+  "name": "ProjectWeapon.LevelPlayTestAuthority",
+  "rootNamespace": "ProjectWeapon.LevelPlayTestAuthority",
+  "references": [
+    "ProjectWeapon.AdRewardsAuthority"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "noEngineReferences": true
+}
