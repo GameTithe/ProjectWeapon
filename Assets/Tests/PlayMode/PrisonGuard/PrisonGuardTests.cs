@@ -213,11 +213,60 @@ namespace ProjectWeapon.PrisonGuard.Tests
         }
 
         [Test]
-        public void DeadlineAndDifferentRunCannotDealDamageOrCreateDefeat()
+        public void LateObservationAtDeadlinePreservesAnEarlierPendingHitForFrameArbitration()
         {
             SetPositions(new Vector2(3.5f, 1.5f), new Vector2(5f, 1.5f));
-            Tick(599100);
-            Assert.That(guard.ActiveAttack!.Value.HitsAt, Is.EqualTo(Ms(600000)));
+            TimeSpan? damageAt = null;
+            health.DamageApplied += damage => damageAt = damage.EffectiveAt;
+            Tick(599000);
+            Assert.That(guard.ActiveAttack!.Value.HitsAt, Is.EqualTo(Ms(599900)));
+            PrisonGuardImpact impact = Tick(600000)!.Value;
+            Assert.That(impact.Attack.HitsAt, Is.EqualTo(Ms(599900)));
+            Assert.That(damageAt, Is.EqualTo(Ms(599900)));
+            Assert.That(impact.Hits.Single().Amount, Is.EqualTo(30f));
+            Assert.That(health.CurrentHealth, Is.EqualTo(70));
+            Assert.That(warning.enabled, Is.False);
+            Assert.That(Tick(600000), Is.Null);
+            Assert.That(countdown.ProcessFrame(signals)!.Reason, Is.EqualTo(RunEndReason.TimeExpired));
+            Assert.That(health.CurrentHealth, Is.EqualTo(70));
+        }
+
+        [TestCase(3.5f, 1.25f, false)]
+        [TestCase(1.5f, 6.5f, true)]
+        public void DrawnDiagonalCornersAreIncludedAndAnOutwardOffsetMisses(float x, float y, bool checkImpact)
+        {
+            // The lower-coordinate sample is intentionally inside an authored wall; exercise its rectangle only.
+            if (!checkImpact)
+                Find<TilemapCollider2D>().enabled = false;
+
+            SetPositions(new Vector2(x, y), new Vector2(x + 1f, y + 1f));
+            Tick(10);
+            PrisonGuardSlam slam = guard.ActiveAttack!.Value;
+            for (int corner = 0; corner < warning.positionCount; corner++)
+                Assert.That(slam.Contains(Point(warning.GetPosition(corner))), Is.True, $"Corner {corner} was excluded.");
+
+            WorldPoint2D farRight = slam.GetCorner(far: true, left: false);
+            var outside = new WorldPoint2D(farRight.X + .001f, farRight.Y - .001f);
+            Assert.That(slam.Contains(outside), Is.False);
+            if (checkImpact)
+            {
+                player.position = new Vector2(farRight.X, farRight.Y);
+                Assert.That(Tick(910)!.Value.Hits.Single().Amount, Is.EqualTo(30f));
+
+                player.position = new Vector2(x + 1f, y + 1f);
+                Tick(2710);
+                player.position = new Vector2(outside.X, outside.Y);
+                Assert.That(Tick(3610)!.Value.Hits, Is.Empty);
+            }
+        }
+
+        [TestCase(599100)]
+        [TestCase(599101)]
+        public void DeadlineAndDifferentRunCannotDealDamageOrCreateDefeat(int startAt)
+        {
+            SetPositions(new Vector2(3.5f, 1.5f), new Vector2(5f, 1.5f));
+            Tick(startAt);
+            Assert.That(guard.ActiveAttack!.Value.HitsAt, Is.EqualTo(Ms(startAt + 900)));
             Assert.That(Tick(600000), Is.Null);
             Assert.That(warning.enabled, Is.False);
             Assert.That(guard.ApplyDamage(PlayerHit(200f), now), Is.False);

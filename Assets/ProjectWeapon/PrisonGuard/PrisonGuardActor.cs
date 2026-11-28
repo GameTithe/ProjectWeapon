@@ -71,7 +71,7 @@ namespace ProjectWeapon.PrisonGuard
         /// <summary>Collects one resolved strike for the room's effective-time damage arbitration.</summary>
         public PrisonGuardImpact? Advance(TimeSpan now)
         {
-            if (!CanAct(now) || Defeat.HasValue)
+            if (LiveSession() is not { } session || Defeat.HasValue)
             {
                 CancelAttack();
                 return null;
@@ -83,9 +83,15 @@ namespace ProjectWeapon.PrisonGuard
             if (now >= flashUntil)
                 body.color = bodyTint;
             if (ActiveAttack is { } attack)
-                return now >= attack.HitsAt ? Resolve(attack) : null;
+            {
+                if (now >= attack.HitsAt && attack.HitsAt < session.Deadline)
+                    return Resolve(attack);
+                if (now >= session.Deadline)
+                    CancelAttack();
+                return null;
+            }
 
-            if (now < readyAt || playerHealth.CurrentHealth == 0
+            if (now >= session.Deadline || now < readyAt || playerHealth.CurrentHealth == 0
                 || now > TimeSpan.MaxValue - settings.Windup - settings.Recovery)
                 return null;
 
@@ -103,7 +109,8 @@ namespace ProjectWeapon.PrisonGuard
 
         public bool ApplyDamage(DamageRequest hit, TimeSpan effectiveAt)
         {
-            if (!CanAct(effectiveAt) || Defeat.HasValue || effectiveAt < processedAt || hit.ApplicationId == Guid.Empty
+            if (LiveSession() is not { } session || effectiveAt >= session.Deadline || Defeat.HasValue
+                || effectiveAt < processedAt || hit.ApplicationId == Guid.Empty
                 || !StringComparer.Ordinal.Equals(hit.TargetId, BossId) || string.IsNullOrWhiteSpace(hit.AttackerId)
                 || StringComparer.Ordinal.Equals(hit.AttackerId, BossId)
                 || !float.IsFinite(hit.Amount) || hit.Amount <= 0f || !appliedDamage.Add(hit.ApplicationId))
@@ -140,9 +147,8 @@ namespace ProjectWeapon.PrisonGuard
             return new PrisonGuardImpact(attack, AreaDamageSelector.FindTargets(contact, new[] { target }));
         }
 
-        private bool CanAct(TimeSpan now) => isActiveAndEnabled && player && walls && run is { Result: null }
-            && run.CurrentRun is { } session && session.Id == runId && session.ZoneId == ZoneId
-            && now >= session.StartedAt && now < session.Deadline;
+        private RunSession? LiveSession() => isActiveAndEnabled && player && walls && run is { Result: null }
+            && run.CurrentRun is { } session && session.Id == runId && session.ZoneId == ZoneId ? session : null;
 
         private bool HasLineOfSight(WorldPoint2D origin, WorldPoint2D target)
         {

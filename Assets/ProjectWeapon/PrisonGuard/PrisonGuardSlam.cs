@@ -43,11 +43,17 @@ namespace ProjectWeapon.PrisonGuard
 
         public bool Contains(WorldPoint2D point)
         {
+            if (!point.IsFinite || Length <= 0f)
+                return false;
+
             double x = (double)point.X - Origin.X;
             double y = (double)point.Y - Origin.Y;
             double forward = x * directionX + y * directionY;
             double side = y * directionX - x * directionY;
-            return point.IsFinite && Length > 0f && forward >= 0d && forward <= Length && Math.Abs(side) <= Width / 2d;
+            // The rendered corners round each world coordinate to float. Allow one float step at that scale.
+            double scale = Math.Max(1d, Math.Max(Math.Max(Math.Abs(point.X), Math.Abs(point.Y)), Math.Max(Length, Width)));
+            double margin = scale * 1.1920928955078125e-7d;
+            return forward >= -margin && forward <= Length + margin && Math.Abs(side) <= Width / 2d + margin;
         }
 
         public WorldPoint2D GetCorner(bool far, bool left)
