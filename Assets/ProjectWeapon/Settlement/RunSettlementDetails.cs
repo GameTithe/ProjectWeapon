@@ -47,10 +47,12 @@ namespace ProjectWeapon.Settlement
         [SerializeField] private string[]? newCatalogRecoveries;
         [SerializeField] private long priorConfirmedCoins;
         [SerializeField] private int preservedWarehouseCount;
+        [SerializeField] private int unlockedZoneId;
 
         internal RunSettlementDetails(RunCoinSettlementProposal coins, SortieManifest manifest,
             IEnumerable<WeaponInstance> recoveredItems, IEnumerable<WeaponInstance> lostItems,
-            IEnumerable<WeaponInstance> expiredLoans, IReadOnlyList<string> catalogRecoveries, int warehouseCount)
+            IEnumerable<WeaponInstance> expiredLoans, IReadOnlyList<string> catalogRecoveries, int warehouseCount,
+            int? unlockedZoneId = null)
         {
             version = 2;
             outcome = coins.Reason.ToString();
@@ -74,6 +76,7 @@ namespace ProjectWeapon.Settlement
             newCatalogRecoveries = catalogRecoveries.ToArray();
             priorConfirmedCoins = coins.PreviousBalance.ConfirmedCoins;
             preservedWarehouseCount = warehouseCount;
+            this.unlockedZoneId = unlockedZoneId ?? 0;
         }
 
         public RunEndReason Reason => Enum.Parse<RunEndReason>(outcome);
@@ -82,6 +85,7 @@ namespace ProjectWeapon.Settlement
         public bool HasItemizedDetails => version >= 2;
         public long? PriorConfirmedCoins => HasItemizedDetails ? priorConfirmedCoins : null;
         public int? PreservedWarehouseCount => HasItemizedDetails ? preservedWarehouseCount : null;
+        public int? UnlockedZoneId => unlockedZoneId == 0 ? null : unlockedZoneId;
         public IReadOnlyList<SettledWeapon> ReturnedWeapons => Lines(returnedWeapons);
         public IReadOnlyList<SettledWeapon> NewWeapons => Lines(newWeapons);
         public IReadOnlyList<SettledWeapon> LostWeapons => Lines(lostWeapons);
@@ -125,7 +129,8 @@ namespace ProjectWeapon.Settlement
                     details.preservedWarehouseCount >= 0,
                 _ => false
             };
-            if (!fieldsValid)
+            if (!fieldsValid || details.unlockedZoneId < 0
+                || (details.unlockedZoneId != 0 && (!details.HasItemizedDetails || reason != RunEndReason.Extracted)))
                 return null;
 
             if (reason == RunEndReason.Extracted && details.forfeitedCoins != 0)

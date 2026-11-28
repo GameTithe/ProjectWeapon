@@ -9,6 +9,7 @@
         "ProjectWeapon.Enemies.Melee",
         "ProjectWeapon.Enemies.Ranged",
         "ProjectWeapon.Extraction",
+        "ProjectWeapon.ForestBoss",
         "ProjectWeapon.Inventory",
         "ProjectWeapon.Loot",
         "ProjectWeapon.Movement",
