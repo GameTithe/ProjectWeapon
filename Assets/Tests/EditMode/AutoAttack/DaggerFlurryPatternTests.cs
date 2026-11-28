@@ -117,17 +117,20 @@ namespace ProjectWeapon.AutoAttack.Tests
         }
 
         [Test]
-        public void LateFrameCanResolveDueStrikesWithoutChangingTheirEffectiveTimes()
+        public void LateFramePreservesScheduledTimesAndUsesTheCurrentDamageClock()
         {
             TargetCandidate nearest = Candidate("nearest", 0.5f);
             Assert.That(AttackAt(100, nearest), Is.True);
             DaggerFlurry flurry = flurries.Single();
 
             Assert.That(flurry.TryResolveNext(run, Ms(250), Origin, nearest, out DaggerStrike first), Is.True);
+            Assert.That(flurry.TryResolveNext(run, Ms(249), Origin, nearest, out _), Is.False);
             Assert.That(flurry.TryResolveNext(run, Ms(250), Origin, nearest, out DaggerStrike second), Is.True);
             Assert.That(flurry.TryResolveNext(run, Ms(250), Origin, nearest, out _), Is.False);
-            Assert.That(first.EffectiveAt, Is.EqualTo(Ms(100)));
-            Assert.That(second.EffectiveAt, Is.EqualTo(Ms(220)));
+            Assert.That(first.ScheduledAt, Is.EqualTo(Ms(100)));
+            Assert.That(second.ScheduledAt, Is.EqualTo(Ms(220)));
+            Assert.That(first.EffectiveAt, Is.EqualTo(Ms(250)));
+            Assert.That(second.EffectiveAt, Is.EqualTo(Ms(250)));
         }
 
         [Test]
