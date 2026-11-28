@@ -80,6 +80,13 @@ namespace ProjectWeapon.Settlement.Tests
             Assert.That(details.AwardedCoins, Is.EqualTo(35));
             Assert.That(details.RecoveredInstanceIds, Is.EquivalentTo(new[] { carriedIn.Id.ToString(), loot.Id.ToString() }));
             Assert.That(details.LostInstanceIds.Single(), Is.EqualTo(abandoned.Id.ToString()));
+            Assert.That(details.HasItemizedDetails, Is.True);
+            Assert.That(details.PriorConfirmedCoins, Is.EqualTo(100));
+            Assert.That(details.PreservedWarehouseCount, Is.EqualTo(1));
+            Assert.That(details.ReturnedWeapons.Single().DefinitionId, Is.EqualTo(Sword));
+            Assert.That(details.NewWeapons.Single().DefinitionId, Is.EqualTo(Spear));
+            Assert.That(details.LostWeapons.Single().DefinitionId, Is.EqualTo(Bow));
+            Assert.That(details.NewCatalogRecoveries, Is.EquivalentTo(new[] { Sword.Value, Spear.Value }));
             Assert.That(wallet.PendingCoins, Is.EqualTo(35));
         }
 
@@ -216,6 +223,23 @@ namespace ProjectWeapon.Settlement.Tests
             Assert.That(result.Snapshot!.ConfirmedCoins, Is.EqualTo(70));
             Assert.That(result.Snapshot.Revision, Is.EqualTo(3));
             Assert.That(result.Snapshot.Settlements, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void VersionOneReceiptRetainsKnownFactsWithoutInventingItemizedRecords()
+        {
+            string payload = @"{""version"":1,""outcome"":""Extracted"",""awardedCoins"":9,""forfeitedCoins"":0,""recovered"":[""known-id""],""lost"":[],""closedLoans"":[]}";
+            var receipt = new SettlementSaveRecord(Guid.NewGuid(), "historical-transaction", payload);
+
+            RunSettlementDetails details = RunSettlementDetails.Read(receipt)!;
+
+            Assert.That(details, Is.Not.Null);
+            Assert.That(details.HasItemizedDetails, Is.False);
+            Assert.That(details.PriorConfirmedCoins, Is.Null);
+            Assert.That(details.PreservedWarehouseCount, Is.Null);
+            Assert.That(details.AwardedCoins, Is.EqualTo(9));
+            Assert.That(details.RecoveredInstanceIds, Is.EqualTo(new[] { "known-id" }));
+            Assert.That(details.ReturnedWeapons, Is.Empty);
         }
 
         private void Save(SaveSnapshot snapshot) => Assert.That(store.Commit(0, snapshot).Status, Is.EqualTo(SnapshotCommitStatus.Committed));

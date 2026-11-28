@@ -7,10 +7,27 @@ using ProjectWeapon.Inventory;
 using ProjectWeapon.Run;
 using ProjectWeapon.Save;
 using ProjectWeapon.Wallet;
+using ProjectWeapon.Weapons;
 using UnityEngine;
 
 namespace ProjectWeapon.Settlement
 {
+    [Serializable]
+    public sealed class SettledWeapon
+    {
+        [SerializeField] private string instanceId;
+        [SerializeField] private string definitionId;
+
+        internal SettledWeapon(WeaponInstance weapon)
+        {
+            instanceId = weapon.Id.ToString();
+            definitionId = weapon.DefinitionId.Value;
+        }
+
+        public string InstanceId => instanceId;
+        public WeaponDefinitionId DefinitionId => new WeaponDefinitionId(definitionId);
+    }
+
     [Serializable]
     public sealed class RunSettlementDetails
     {
@@ -18,28 +35,64 @@ namespace ProjectWeapon.Settlement
         [SerializeField] private string outcome;
         [SerializeField] private long awardedCoins;
         [SerializeField] private long forfeitedCoins;
-        [SerializeField] private string[] recovered;
-        [SerializeField] private string[] lost;
-        [SerializeField] private string[] closedLoans;
+        // Version 1 receipts can still be read without inventing historical detail.
+        [SerializeField] private string[]? recovered;
+        [SerializeField] private string[]? lost;
+        [SerializeField] private string[]? closedLoans;
 
-        internal RunSettlementDetails(RunCoinSettlementProposal coins, IEnumerable<WeaponInstance> recovered,
-            IEnumerable<WeaponInstance> lost, IEnumerable<WeaponInstance> loans)
+        [SerializeField] private SettledWeapon[]? returnedWeapons;
+        [SerializeField] private SettledWeapon[]? newWeapons;
+        [SerializeField] private SettledWeapon[]? lostWeapons;
+        [SerializeField] private SettledWeapon[]? loans;
+        [SerializeField] private string[]? newCatalogRecoveries;
+        [SerializeField] private long priorConfirmedCoins;
+        [SerializeField] private int preservedWarehouseCount;
+
+        internal RunSettlementDetails(RunCoinSettlementProposal coins, SortieManifest manifest,
+            IEnumerable<WeaponInstance> recoveredItems, IEnumerable<WeaponInstance> lostItems,
+            IEnumerable<WeaponInstance> expiredLoans, IReadOnlyList<string> catalogRecoveries, int warehouseCount)
         {
-            version = 1;
+            version = 2;
             outcome = coins.Reason.ToString();
             awardedCoins = coins.AwardedCoins;
             forfeitedCoins = coins.ForfeitedCoins;
-            this.recovered = ReadIds(recovered);
-            this.lost = ReadIds(lost);
-            closedLoans = ReadIds(loans);
+            var packed = new HashSet<WeaponInstanceId>(manifest.Equipped.Select(item => item.Id));
+            var returned = new List<SettledWeapon>();
+            var acquired = new List<SettledWeapon>();
+            foreach (WeaponInstance item in recoveredItems)
+            {
+                var line = new SettledWeapon(item);
+                if (packed.Contains(item.Id))
+                    returned.Add(line);
+                else
+                    acquired.Add(line);
+            }
+            returnedWeapons = returned.ToArray();
+            newWeapons = acquired.ToArray();
+            lostWeapons = CreateLines(lostItems);
+            loans = CreateLines(expiredLoans);
+            newCatalogRecoveries = catalogRecoveries.ToArray();
+            priorConfirmedCoins = coins.PreviousBalance.ConfirmedCoins;
+            preservedWarehouseCount = warehouseCount;
         }
 
         public RunEndReason Reason => Enum.Parse<RunEndReason>(outcome);
         public long AwardedCoins => awardedCoins;
         public long ForfeitedCoins => forfeitedCoins;
-        public IReadOnlyList<string> RecoveredInstanceIds => Array.AsReadOnly(recovered);
-        public IReadOnlyList<string> LostInstanceIds => Array.AsReadOnly(lost);
-        public IReadOnlyList<string> ClosedLoanIds => Array.AsReadOnly(closedLoans);
+        public bool HasItemizedDetails => version >= 2;
+        public long? PriorConfirmedCoins => HasItemizedDetails ? priorConfirmedCoins : null;
+        public int? PreservedWarehouseCount => HasItemizedDetails ? preservedWarehouseCount : null;
+        public IReadOnlyList<SettledWeapon> ReturnedWeapons => Lines(returnedWeapons);
+        public IReadOnlyList<SettledWeapon> NewWeapons => Lines(newWeapons);
+        public IReadOnlyList<SettledWeapon> LostWeapons => Lines(lostWeapons);
+        public IReadOnlyList<SettledWeapon> ClosedLoans => Lines(loans);
+        public IReadOnlyList<string> NewCatalogRecoveries => Ids(newCatalogRecoveries);
+
+        public IReadOnlyList<string> RecoveredInstanceIds => HasItemizedDetails
+            ? ReturnedWeapons.Concat(NewWeapons).Select(item => item.InstanceId).ToArray()
+            : Ids(recovered);
+        public IReadOnlyList<string> LostInstanceIds => HasItemizedDetails ? ReadIds(LostWeapons) : Ids(lost);
+        public IReadOnlyList<string> ClosedLoanIds => HasItemizedDetails ? ReadIds(ClosedLoans) : Ids(closedLoans);
 
         internal string Encode() => JsonUtility.ToJson(this);
 
@@ -60,14 +113,24 @@ namespace ProjectWeapon.Settlement
                 return null;
             }
 
-            if (details == null || details.version != 1 || !ParseReason(details.outcome, out RunEndReason reason) ||
-                details.awardedCoins < 0 || details.forfeitedCoins < 0 ||
-                details.recovered == null || details.lost == null || details.closedLoans == null)
+            if (details == null || !ParseReason(details.outcome, out RunEndReason reason)
+                || details.awardedCoins < 0 || details.forfeitedCoins < 0)
+                return null;
+
+            bool fieldsValid = details.version switch
+            {
+                1 => details.recovered != null && details.lost != null && details.closedLoans != null,
+                2 => details.returnedWeapons != null && details.newWeapons != null && details.lostWeapons != null &&
+                    details.loans != null && details.newCatalogRecoveries != null && details.priorConfirmedCoins >= 0 &&
+                    details.preservedWarehouseCount >= 0,
+                _ => false
+            };
+            if (!fieldsValid)
                 return null;
 
             if (reason == RunEndReason.Extracted && details.forfeitedCoins != 0)
                 return null;
-            if (reason != RunEndReason.Extracted && (details.awardedCoins != 0 || details.recovered.Length != 0))
+            if (reason != RunEndReason.Extracted && (details.awardedCoins != 0 || details.RecoveredInstanceIds.Count != 0))
                 return null;
 
             return details;
@@ -77,7 +140,16 @@ namespace ProjectWeapon.Settlement
             => Enum.TryParse(value, out reason) && Enum.IsDefined(typeof(RunEndReason), reason)
                 && StringComparer.Ordinal.Equals(value, reason.ToString());
 
-        private static string[] ReadIds(IEnumerable<WeaponInstance> items)
-            => items.Select(item => item.Id.ToString()).ToArray();
+        private static SettledWeapon[] CreateLines(IEnumerable<WeaponInstance> items)
+            => items.Select(item => new SettledWeapon(item)).ToArray();
+
+        private static IReadOnlyList<SettledWeapon> Lines(SettledWeapon[]? rows)
+            => rows != null ? Array.AsReadOnly(rows) : Array.Empty<SettledWeapon>();
+
+        private static IReadOnlyList<string> Ids(string[]? rows)
+            => rows != null ? Array.AsReadOnly(rows) : Array.Empty<string>();
+
+        private static string[] ReadIds(IEnumerable<SettledWeapon> items)
+            => items.Select(item => item.InstanceId).ToArray();
     }
 }

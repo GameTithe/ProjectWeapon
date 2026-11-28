@@ -90,23 +90,29 @@ namespace ProjectWeapon.Settlement
             IReadOnlyList<WeaponInstance> nextWeapons;
             IReadOnlyList<CatalogSaveRecord> nextCatalog;
             RunSettlementDetails details;
+            int warehouseCount = current.Weapons.Count(item => item.Location.Kind == WeaponLocationKind.Warehouse);
             if (run.Succeeded)
             {
                 SuccessfulSortieResult recovered = SuccessfulSortieSettlement.Calculate(run, manifest, heldAtEnd, coins);
                 nextWeapons = ApplySuccessfulRecovery(current, manifest, recovered);
                 var catalog = new CatalogProgress(current.Catalog);
+                var catalogRecoveries = new List<string>();
                 foreach (WeaponInstance weapon in heldAtEnd)
-                    catalog.RecordRecovery(run, weapon);
+                {
+                    if (catalog.RecordRecovery(run, weapon))
+                        catalogRecoveries.Add(weapon.DefinitionId.Value);
+                }
                 nextCatalog = catalog.ToSaveRecords();
-                details = new RunSettlementDetails(coins, recovered.RecoveredWeapons, recovered.AbandonedPackedWeapons,
-                    recovered.ReturnedLoans);
+                details = new RunSettlementDetails(coins, manifest, recovered.RecoveredWeapons,
+                    recovered.AbandonedPackedWeapons, recovered.ReturnedLoans, catalogRecoveries, warehouseCount);
             }
             else
             {
                 FailedSortieResult failed = FailedSortieSettlement.Calculate(run, manifest, current, heldAtEnd, coins);
                 nextWeapons = failed.PreservedWeapons;
                 nextCatalog = failed.PreservedCatalog;
-                details = new RunSettlementDetails(coins, Array.Empty<WeaponInstance>(), failed.LostWeapons, failed.ExpiredLoans);
+                details = new RunSettlementDetails(coins, manifest, Array.Empty<WeaponInstance>(), failed.LostWeapons,
+                    failed.ExpiredLoans, Array.Empty<string>(), warehouseCount);
             }
 
             var receipt = new SettlementSaveRecord(run.RunId.Value, "RunSettlement:" + run.RunId, details.Encode());
