@@ -73,7 +73,7 @@ namespace ProjectWeapon.AdRewards.Tests
                 DateTime created = ReadTime(reader);
                 DateTime expires = ReadTime(reader);
                 reservations[i] = hasStates
-                    ? new AdRewardReservation(token, account, created, expires, Guid.Parse(reader.ReadString()),
+                    ? new AdRewardReservation(token, account, created, expires, ReadTime(reader), Guid.Parse(reader.ReadString()),
                         (AdRewardReservationState)reader.ReadInt32())
                     : new AdRewardReservation(token, account, created, expires, reader.ReadBoolean());
             }
@@ -109,6 +109,7 @@ namespace ProjectWeapon.AdRewards.Tests
                         writer.Write(reservation.AccountId);
                         writer.Write(reservation.CreatedAtUtc.Ticks);
                         writer.Write(reservation.AcceptUntilUtc.Ticks);
+                        writer.Write(reservation.ViewUntilUtc.Ticks);
                         writer.Write(reservation.RequestId.ToString("D"));
                         writer.Write((int)reservation.State);
                     }

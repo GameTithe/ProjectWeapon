@@ -69,6 +69,12 @@ namespace ProjectWeapon.AdRewards
 
         public AdRewardReservationStatus Status { get; }
         public AdRewardReservation? Reservation { get; }
+
+        /// <summary>Checks the fresh authorization's show-start window using trusted UTC.</summary>
+        public bool AuthorizesPresentationAt(DateTime authorityUtc) =>
+            Status == AdRewardReservationStatus.Reserved && Reservation is { } reservation
+            && authorityUtc.Kind == DateTimeKind.Utc && authorityUtc >= reservation.CreatedAtUtc
+            && authorityUtc < reservation.ViewUntilUtc;
     }
 
     public readonly struct AdRewardDailyAvailability
@@ -94,6 +100,7 @@ namespace ProjectWeapon.AdRewards
     {
         public const int DailyLimit = 2;
         public static readonly TimeSpan DefaultProofWindow = TimeSpan.FromDays(9);
+        public static readonly TimeSpan DefaultViewLease = TimeSpan.FromMinutes(5);
         private const int MaxAttempts = 4;
 
         private readonly string scope;
@@ -101,9 +108,11 @@ namespace ProjectWeapon.AdRewards
         private readonly IAdRewardPresentationEndVerifier verifier;
         private readonly Func<DateTime> utcNow;
         private readonly TimeSpan proofWindow;
+        private readonly TimeSpan viewLease;
 
         public AdRewardReservationService(string scope, IAdRewardReservationStore store,
-            IAdRewardPresentationEndVerifier verifier, Func<DateTime> utcNow, TimeSpan? proofWindow = null)
+            IAdRewardPresentationEndVerifier verifier, Func<DateTime> utcNow, TimeSpan? proofWindow = null,
+            TimeSpan? viewLease = null)
         {
             if (string.IsNullOrWhiteSpace(scope))
                 throw new ArgumentException("An authority scope is required.", nameof(scope));
@@ -115,6 +124,9 @@ namespace ProjectWeapon.AdRewards
             this.proofWindow = proofWindow ?? DefaultProofWindow;
             if (this.proofWindow <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(proofWindow));
+            this.viewLease = viewLease ?? DefaultViewLease;
+            if (this.viewLease <= TimeSpan.Zero || this.viewLease > this.proofWindow)
+                throw new ArgumentOutOfRangeException(nameof(viewLease));
         }
 
         public AdRewardDailyAvailability? ReadAvailability(IAdRewardReservationIdentity identity)
@@ -156,8 +168,8 @@ namespace ProjectWeapon.AdRewards
                 if (snapshot.Reservations.Any(item => item.Token == token) ||
                     snapshot.Grants.Any(item => item.Completion.ReservationToken == token))
                     continue;
-                var reservation = new AdRewardReservation(token, playerId, now, now.Add(proofWindow), requestId,
-                    AdRewardReservationState.Viewing);
+                var reservation = new AdRewardReservation(token, playerId, now, now.Add(proofWindow),
+                    now.Add(viewLease), requestId, AdRewardReservationState.Viewing);
                 if (store.TryWriteReservation(snapshot.Revision, reservation))
                     return new AdRewardReservationResult(AdRewardReservationStatus.Reserved, reservation);
             }
@@ -231,13 +243,13 @@ namespace ProjectWeapon.AdRewards
             bool viewing = false;
             foreach (AdRewardReservation reservation in snapshot.Reservations)
             {
-                if (reservation.AccountId != playerId || !reservation.AcceptsCompletion
-                    || now < reservation.CreatedAtUtc || now >= reservation.AcceptUntilUtc
+                if (reservation.AccountId != playerId || !reservation.AcceptsCompletion || now >= reservation.AcceptUntilUtc
                     || grantedTokens.Contains(reservation.Token))
                     continue;
                 if (reservation.CreatedAtUtc.Date == now.Date)
                     held++;
-                viewing |= reservation.State == AdRewardReservationState.Viewing;
+                // A backward clock step must not clear an already issued presentation, regardless of its pinned day.
+                viewing |= reservation.State == AdRewardReservationState.Viewing && now < reservation.ViewUntilUtc;
             }
             return new AdRewardDailyAvailability(now.Date, snapshot.ConfirmedUses(playerId, now.Date), held, viewing);
         }

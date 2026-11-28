@@ -154,6 +154,62 @@ namespace ProjectWeapon.AdRewards.Tests
             Assert.That(OpenStore().Read().Reservations.Count, Is.EqualTo(1));
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void BackwardServerClockKeepsAnAlreadyIssuedViewAndPinsItsHold(bool acrossMidnight)
+        {
+            now = acrossMidnight ? BeforeMidnight.Date.AddDays(1) : BeforeMidnight;
+            var firstDevice = Reservations();
+            AdRewardReservation first = Reserve(firstDevice);
+            now = now.AddTicks(-1);
+
+            var secondDevice = Reservations(OpenStore());
+            var quota = secondDevice.ReadAvailability(new Identity(Player))!.Value;
+            Assert.That(quota.ViewingInProgress, Is.True);
+            Assert.That(quota.HeldSlots, Is.EqualTo(acrossMidnight ? 0 : 1));
+            Assert.That(secondDevice.TryReserve(Online, Guid.NewGuid(), true).Status,
+                Is.EqualTo(AdRewardReservationStatus.ViewingInProgress));
+            Assert.That(Finish(first, "clock-stepped-back", UnexpectedDraw).Status, Is.EqualTo(AdRewardClaimStatus.RetryRequired));
+            Assert.That(OpenStore().Read().Revision, Is.EqualTo(1));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void AbandonedViewLeaseReleasesOnlyTheViewingGateAtExactExpiry(bool acrossMidnight)
+        {
+            TimeSpan lease = acrossMidnight ? TimeSpan.FromMinutes(5) : TimeSpan.FromMinutes(2);
+            if (!acrossMidnight)
+                now = BeforeMidnight.AddHours(-1);
+            var service = Reservations(viewLease: acrossMidnight ? null : lease);
+            Guid request = Guid.NewGuid();
+            var first = service.TryReserve(Online, request, true);
+            Assert.That(first.Status, Is.EqualTo(AdRewardReservationStatus.Reserved));
+            AdRewardReservation reservation = first.Reservation!;
+            Assert.That(reservation.ViewUntilUtc, Is.EqualTo(now.Add(lease)));
+            Assert.That(reservation.AcceptUntilUtc, Is.EqualTo(now.AddDays(9)));
+            Assert.That(first.AuthorizesPresentationAt(now), Is.True);
+            Assert.That(first.AuthorizesPresentationAt(DateTime.SpecifyKind(now, DateTimeKind.Local)), Is.False);
+
+            now = reservation.ViewUntilUtc.AddTicks(-1);
+            Assert.That(first.AuthorizesPresentationAt(now), Is.True);
+            var retry = Reservations(OpenStore()).TryReserve(Online, request, true);
+            Assert.That(retry.Status, Is.EqualTo(AdRewardReservationStatus.AlreadyReserved));
+            Assert.That(retry.Reservation!.Token, Is.EqualTo(reservation.Token));
+            Assert.That(retry.AuthorizesPresentationAt(now), Is.False);
+            Assert.That(service.TryReserve(Online, Guid.NewGuid(), true).Status,
+                Is.EqualTo(AdRewardReservationStatus.ViewingInProgress));
+
+            now = reservation.ViewUntilUtc;
+            Assert.That(first.AuthorizesPresentationAt(now), Is.False);
+            var quota = service.ReadAvailability(Online)!.Value;
+            Assert.That(quota.ViewingInProgress, Is.False);
+            Assert.That(quota.HeldSlots, Is.EqualTo(acrossMidnight ? 0 : 1));
+            Assert.That(quota.RemainingSlots, Is.EqualTo(acrossMidnight ? 2 : 1));
+            Assert.That(Reserve(service).Token, Is.Not.EqualTo(reservation.Token));
+            Assert.That(Finish(reservation, "after-view-lease").Status, Is.EqualTo(AdRewardClaimStatus.Granted));
+            Assert.That(OpenStore().Read().ConfirmedUses(Player, reservation.CreatedAtUtc.Date), Is.EqualTo(1));
+        }
+
         [Test]
         public void LocalTimeOrUnverifiedIdentityCannotAuthorizeReservationAndExpiryIsExact()
         {
@@ -213,8 +269,8 @@ namespace ProjectWeapon.AdRewards.Tests
         }
 
         private AdRewardFileStore OpenStore() => new AdRewardFileStore(path, gate);
-        private AdRewardReservationService Reservations(IAdRewardReservationStore? other = null)
-            => new AdRewardReservationService(Scope, other ?? store, presentation, () => now);
+        private AdRewardReservationService Reservations(IAdRewardReservationStore? other = null, TimeSpan? viewLease = null)
+            => new AdRewardReservationService(Scope, other ?? store, presentation, () => now, viewLease: viewLease);
         private AdRewardCompletionService Complete(Func<int, int>? roll = null)
             => new AdRewardCompletionService(Scope, completion, OpenStore(), AdRewardDrawFixture.Create(), roll ?? (_ => 0), () => now);
         private static int UnexpectedDraw(int _) => throw new InvalidOperationException("An ineligible callback cannot draw a weapon.");

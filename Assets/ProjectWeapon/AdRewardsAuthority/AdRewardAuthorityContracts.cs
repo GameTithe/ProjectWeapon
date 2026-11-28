@@ -48,26 +48,29 @@ namespace ProjectWeapon.AdRewards
     {
         public AdRewardReservation(string token, string accountId, DateTime createdAtUtc, DateTime acceptUntilUtc,
             bool acceptsCompletion)
-            : this(token, accountId, createdAtUtc, acceptUntilUtc, Guid.Empty,
+            : this(token, accountId, createdAtUtc, acceptUntilUtc, createdAtUtc, Guid.Empty,
                 acceptsCompletion ? AdRewardReservationState.AwaitingProof : AdRewardReservationState.Released)
         {
         }
 
         public AdRewardReservation(string token, string accountId, DateTime createdAtUtc, DateTime acceptUntilUtc,
-            Guid requestId, AdRewardReservationState state)
+            DateTime viewUntilUtc, Guid requestId, AdRewardReservationState state)
         {
             if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(accountId))
                 throw new ArgumentException("A reservation token and account ID are required.");
             if (createdAtUtc.Kind != DateTimeKind.Utc || acceptUntilUtc.Kind != DateTimeKind.Utc || acceptUntilUtc <= createdAtUtc)
                 throw new ArgumentException("A reservation needs an increasing UTC acceptance interval.");
-            if (!Enum.IsDefined(typeof(AdRewardReservationState), state) ||
-                (requestId == Guid.Empty && state == AdRewardReservationState.Viewing))
-                throw new ArgumentException("A viewing reservation needs a stable request ID and a valid state.");
+            if (viewUntilUtc.Kind != DateTimeKind.Utc || viewUntilUtc < createdAtUtc || viewUntilUtc > acceptUntilUtc
+                || (state == AdRewardReservationState.Viewing && (viewUntilUtc == createdAtUtc || requestId == Guid.Empty)))
+                throw new ArgumentException("A viewing reservation needs a bounded UTC lease and stable request ID.");
+            if (!Enum.IsDefined(typeof(AdRewardReservationState), state))
+                throw new ArgumentOutOfRangeException(nameof(state));
 
             Token = token;
             AccountId = accountId;
             CreatedAtUtc = createdAtUtc;
             AcceptUntilUtc = acceptUntilUtc;
+            ViewUntilUtc = viewUntilUtc;
             RequestId = requestId;
             State = state;
         }
@@ -76,12 +79,13 @@ namespace ProjectWeapon.AdRewards
         public string AccountId { get; }
         public DateTime CreatedAtUtc { get; }
         public DateTime AcceptUntilUtc { get; }
+        public DateTime ViewUntilUtc { get; }
         public Guid RequestId { get; }
         public AdRewardReservationState State { get; }
         public bool AcceptsCompletion => State != AdRewardReservationState.Released;
 
         internal AdRewardReservation WithState(AdRewardReservationState state)
-            => new AdRewardReservation(Token, AccountId, CreatedAtUtc, AcceptUntilUtc, RequestId, state);
+            => new AdRewardReservation(Token, AccountId, CreatedAtUtc, AcceptUntilUtc, ViewUntilUtc, RequestId, state);
     }
 
     /// <summary>One immutable durable grant contains the receipt, owned weapon, and one confirmed use on the pinned day.</summary>
