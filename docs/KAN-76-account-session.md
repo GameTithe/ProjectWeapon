@@ -7,7 +7,7 @@
 - Unity 시작 흐름에서 `new AccountSessionBoundary(LocalGuestProfile.GetOrCreate(), new UnityPlayerAccountProvider())`로 단일 소유자를 만든다. 초기 모드는 로컬 게스트다. `GuestProfileId`는 설치에서 만든 로컬 저장 선택용 ID이며 Unity 인증이나 네트워크 없이 사용할 수 있다.
 - 정리된 로비에서 사용자가 온라인 로그인을 선택하면 `SignInAsync()`를 호출한다. Project ID가 구성된 경우에만 SDK를 초기화하고 Player Accounts 브라우저 결과를 Unity Authentication으로 교환한다. SDK가 현재 요청을 승인하고 반환한 UGS PlayerId만 온라인 세션에 들어간다.
 - 경제·광고·랭킹 어댑터는 `TryGetOnlineSession` 또는 `RunOnlineAsync`에서 받은 세션만 사용한다. `OnlineAccountSession.Cancellation`을 하위 작업에 전달한다. 요청이 전송된 경우에도 응답 적용 직전에 `IsCurrent`를 다시 확인한다. 서버는 요청의 인증 컨텍스트에서 플레이어를 식별한다.
-- `UseGuestAsync()`는 즉시 게임의 온라인 세션과 대기 결과 적용을 차단하고, 이어서 두 SDK의 로그인을 정리한다. 동일 PlayerId로 다시 로그인해도 이전 요청을 무효화한다. 만료나 SDK PlayerId 변경도 동일한 세션 경계를 적용한다. 소유자를 내릴 때 `CloseAsync()`로 이벤트 연결을 해제한다.
+- `UseGuestAsync()`는 즉시 게임의 온라인 세션과 대기 결과 적용을 차단하고, 이어서 두 SDK의 로그인을 정리한다. 동일 PlayerId로 다시 로그인해도 이전 요청을 무효화한다. 만료나 SDK PlayerId 변경도 동일한 세션 경계를 적용한다. 소유자를 내릴 때 `CloseAsync()`로 이벤트 연결을 해제한다. `ModeChanged` 구독자의 예외는 해당 알림에 국한되며, 나머지 구독과 세션 전환·정리를 계속한다.
 - 게스트 저장과 온라인 요청의 생명주기는 분리한다. 연결이 없을 때의 동일 계정 읽기 전용 스냅샷, 서버 쓰기, 온라인 런 복구와 실제 UI 전환은 상위 연동에서 다룬다. Unity 호출과 경계는 같은 게임 스레드에서 순서대로 사용한다.
 
 ## SDK와 로그

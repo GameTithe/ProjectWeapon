@@ -27,6 +27,7 @@ namespace ProjectWeapon.Accounts
 
         public GuestProfileId GuestProfile { get; }
         public AccountMode Mode { get; private set; } = AccountMode.LocalGuest;
+        /// <summary>Notifies observers of committed mode changes. A faulty observer cannot interrupt the transition.</summary>
         public event Action<AccountMode>? ModeChanged;
 
         /// <summary>Start this flow from the settled town. Calls while sign-in is pending do not reopen it.</summary>
@@ -212,15 +213,36 @@ namespace ProjectWeapon.Accounts
             previous?.Revoke();
             if (previousAttempt != null)
                 Cancel(previousAttempt);
-            if (changed == revision && old != mode)
-                ModeChanged?.Invoke(mode);
+            if (old != mode)
+                PublishMode(mode, changed);
             return changed;
         }
 
         private void SetMode(AccountMode mode)
         {
             Mode = mode;
-            ModeChanged?.Invoke(mode);
+            PublishMode(mode, revision);
+        }
+
+        private void PublishMode(AccountMode mode, long expectedRevision)
+        {
+            if (ModeChanged is not { } observers)
+                return;
+
+            foreach (Action<AccountMode> observer in observers.GetInvocationList())
+            {
+                if (revision != expectedRevision || Mode != mode)
+                    return;
+
+                try
+                {
+                    observer(mode);
+                }
+                catch (Exception)
+                {
+                    // Observer failures are independent of session and provider lifetime.
+                }
+            }
         }
 
         internal static void Cancel(CancellationTokenSource source)

@@ -175,6 +175,36 @@ namespace ProjectWeapon.Accounts.Tests
             await SignIn("Player-A", 2);
         }
 
+        [Test]
+        public async Task ThrowingModeObserverDoesNotStrandSignInOrPreventGuestAndProviderTeardown()
+        {
+            accounts.ModeChanged += _ => throw new InvalidOperationException("observer failed");
+            var observed = new List<AccountMode>();
+            accounts.ModeChanged += observed.Add;
+
+            Task<AccountSignInStatus> previous = accounts.SignInAsync();
+            Assert.That(provider.Attempts, Has.Count.EqualTo(1));
+            Assert.That(accounts.Mode, Is.EqualTo(AccountMode.SigningIn));
+            Task<bool> guestFallback = accounts.UseGuestAsync();
+            Assert.That(provider.Attempts[0].Cancellation.IsCancellationRequested, Is.True);
+            provider.Complete(0, ProviderSignInResult.Verified("retired"), "retired");
+            Assert.That(await previous, Is.EqualTo(AccountSignInStatus.Superseded));
+            Assert.That(await guestFallback, Is.True);
+            Assert.That(provider.CurrentId, Is.Null);
+
+            OnlineAccountSession current = await SignIn("returning", 1);
+            Assert.That(await accounts.CloseAsync(), Is.True);
+            Assert.That(current.Cancellation.IsCancellationRequested, Is.True);
+            Assert.That(accounts.TryGetOnlineSession(out _), Is.False);
+            Assert.That(provider.CurrentId, Is.Null);
+            Assert.That(await accounts.CloseAsync(), Is.True);
+            Assert.That(await accounts.SignInAsync(), Is.EqualTo(AccountSignInStatus.Unavailable));
+            Assert.That(observed, Is.EqualTo(new[]
+            {
+                AccountMode.SigningIn, AccountMode.LocalGuest, AccountMode.SigningIn, AccountMode.Online, AccountMode.Closed
+            }));
+        }
+
         private async Task<OnlineAccountSession> SignIn(string player, int index)
         {
             Task<AccountSignInStatus> login = accounts.SignInAsync();
