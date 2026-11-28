@@ -1,0 +1,10 @@
+{
+    "name": "ProjectWeapon.WeaponSwitch",
+    "rootNamespace": "ProjectWeapon.WeaponSwitch",
+    "references": [
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Weapons",
+        "UnityEngine.UI"
+    ]
+}
