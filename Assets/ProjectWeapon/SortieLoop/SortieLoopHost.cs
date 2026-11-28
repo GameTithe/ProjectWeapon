@@ -490,6 +490,10 @@ namespace ProjectWeapon.SortieLoop
                 definitions.TryGetValue(equipped.DefinitionId, out WeaponDefinition definition);
                 room.BindRun(active.Run, active.Countdown, active.Clock, active.Field, definition);
                 BindCombatHud(room, active);
+                var boss = room.Encounter.Boss.Boss!;
+                var defeat = new BossDefeatTracker(active.Run, boss.TargetId);
+                boss.Defeated += (id, target, time) => defeat.TryRecordEnemyDeath(id, target, time);
+                active.BossDefeat = defeat;
                 ActiveRoom = room;
                 active.HasEntered = true;
                 room.SetRecoveryBlocked(lifecycle.IsGameplayBlocked);
@@ -564,11 +568,15 @@ namespace ProjectWeapon.SortieLoop
             if (active?.Result is not { } result || active.HeldAtEnd == null || returning || recoveryPending)
                 return;
 
+            Func<SaveSnapshot, int?>? proposeNextZone = null;
+            if (result.Succeeded && active.BossDefeat?.Evidence is BossDefeatEvidence defeat)
+                proposeNextZone = current => ZoneProgression.Restore(zones, current).ProposeNextUnlock(result, defeat);
+
             RunSettlementCommit? commit = null;
             try
             {
                 commit = new RunSettlementCoordinator(store).TrySettle(result, active.Manifest, active.HeldAtEnd,
-                    active.Wallet, requireExactReservations: true);
+                    active.Wallet, requireExactReservations: true, proposeNextZone: proposeNextZone);
             }
             catch (IOException)
             {
@@ -627,6 +635,9 @@ namespace ProjectWeapon.SortieLoop
                 OfferRoomRetry();
         }
 
+        /// <summary>Reads the active profile's confirmed unlocks for the zone menu.</summary>
+        public ZoneProgression ReadZoneProgression() => ZoneProgression.Restore(zones, store.Load());
+
         private void FinishReturning()
         {
             lifecycle.ClearRun();
@@ -659,6 +670,7 @@ namespace ProjectWeapon.SortieLoop
             internal InventoryService Field { get; }
             internal RunCoinAccumulator Wallet { get; }
             internal RunResult? Result { get; set; }
+            internal BossDefeatTracker? BossDefeat { get; set; }
             internal IReadOnlyList<WeaponInstance>? HeldAtEnd { get; set; }
             internal SettlementSaveRecord? Receipt { get; set; }
             internal bool HasEntered { get; set; }

@@ -1,0 +1,9 @@
+{
+    "name": "ProjectWeapon.EnemyCues.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.Art.EnemyCues.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.EnemyCues"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
