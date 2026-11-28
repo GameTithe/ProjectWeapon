@@ -70,7 +70,7 @@ namespace ProjectWeapon.ExtractionUI.Tests
             Assert.That(run.LastExtractionCancellation?.AttemptId, Is.EqualTo(attempt.Id));
             Assert.That(run.LastExtractionCancellation?.EffectiveAt, Is.EqualTo(now));
             Assert.That(Display().Kind, Is.EqualTo(ExtractionStatusKind.Cancelled));
-            Assert.That(Display().Title, Does.StartWith("이동으로"));
+            Assert.That(Display().Title, Is.EqualTo("이동으로 귀환 중단"));
             Assert.That(Display().Fraction, Is.Zero);
 
             Begin();
@@ -96,7 +96,7 @@ namespace ProjectWeapon.ExtractionUI.Tests
             Assert.That(PlayerRunDamage.ApplyHit(health, run, id, 1, now, signals), Is.True);
             channel.ProcessFrame(signals);
             Assert.That(Display().Kind, Is.EqualTo(ExtractionStatusKind.Cancelled));
-            Assert.That(Display().Title, Does.StartWith("피격으로"));
+            Assert.That(Display().Title, Is.EqualTo("공격으로 귀환 중단"));
             Assert.That(run.Result, Is.Null);
         }
 
@@ -152,7 +152,7 @@ namespace ProjectWeapon.ExtractionUI.Tests
             var legacyCancel = RunSignal.CancelExtraction(id, attempt.Id, now);
             channel.ProcessFrame(new[] { legacyCancel });
             Assert.That(Display().Kind, Is.EqualTo(ExtractionStatusKind.Cancelled));
-            Assert.That(Display().Title, Is.EqualTo("귀환이 취소되었습니다."));
+            Assert.That(Display().Title, Is.EqualTo("귀환 중단"));
         }
 
         private ExtractionStatusDisplay Display() => ExtractionStatusDisplay.Read(run, channel);

@@ -2,7 +2,13 @@
 
 [Jira KAN-177](https://gametithe.atlassian.net/browse/KAN-177) · [KAN-83 귀환 채널링](https://gametithe.atlassian.net/browse/KAN-83) · [KAN-81 이동·피해 취소](https://gametithe.atlassian.net/browse/KAN-81)
 
-## 연결
+## 실제 폐성 출격
+
+`SortieLoop.unity`를 열어 출격한다. 상태 패널은 실제 전투 HUD 안전 영역에서 체력·시간·장착 줄 아래에 표시한다. 귀환 버튼으로 진입하면 0%부터 진행한다. `이동으로 귀환 중단`, `공격으로 귀환 중단`, 일반 `귀환 중단` 문구는 기존 폐성 글꼴을 사용한다. 상태 패널은 조작을 가로채지 않는다. [KAN-174](https://gametithe.atlassian.net/browse/KAN-174) · [KAN-176](https://gametithe.atlassian.net/browse/KAN-176)
+
+실제 폐성에서는 3초 귀환 확정 뒤 전투 HUD가 사라지고 같은 런의 영수증이 있는 기존 `귀환 성공` 화면으로 전환한다. 저장할 수 없을 때는 기존 정산 재시도 상태를 표시한다. 재접속과 실제 회피는 기존 관측 시각과 우선순위를 사용한다. [KAN-186](https://gametithe.atlassian.net/browse/KAN-186) · [KAN-189](https://gametithe.atlassian.net/browse/KAN-189)
+
+## 독립 패널 연결
 
 1. 기존 던전 Canvas 아래에서 상태를 표시할 RectTransform을 만들고 `ExtractionStatusPanel`을 붙인다. 960×540 기준 가로 336, 세로 68의 영역으로 검증했다. 상태 UI는 포인터 입력을 가로채지 않는다.
 2. `Initialize(run, channel, font)`에서 현재 탐험의 `RunState`, 해당 런을 진행하는 `ExtractionChannel`과 기존 한글 TMP 폰트를 넘긴다. TMP Essential Resources는 프로젝트에서 사용한다.
@@ -19,4 +25,4 @@ UI는 런의 확정 결과와 채널이 발행한 진행률을 표시한다. 시
 - 진행 도중 유효한 비치명 피해를 받으면 피격 취소가 표시된다. 피해와 완료가 같은 시각이어도 수락된 취소를 표시한다.
 - 제한 시간 만료와 귀환 완료가 같은 프레임이면 완료 UI가 나타나지 않는다. 치명 피해도 런 종료로 전달된다.
 
-Unity Test Runner의 EditMode에서 `ProjectWeapon.ExtractionUI.Tests`를 실행한다. 실제 귀환 접근·채널, 이동 관측, 피해 적용, 런 종료를 연결한 테스트다.
+Unity Test Runner의 EditMode에서 `ProjectWeapon.ExtractionUI.Tests`를 실행한다. 실제 귀환 접근·채널, 이동 관측, 피해 적용, 런 종료를 연결한 테스트다. PlayMode `SortieLoopTests`는 실제 귀환 버튼을 레이캐스트로 눌러 이동과 보초의 실제 피해로 취소하고, 새 시도의 0%·50%·99%와 정확한 완료 시각의 영수증을 검사한다. 같은 출력 글꼴의 글리프와 상태 레이캐스트 제외, 저장 잠금 해제 뒤 재시도도 확인한다.

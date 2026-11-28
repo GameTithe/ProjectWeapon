@@ -8,6 +8,7 @@ using ProjectWeapon.CatalogUI;
 using ProjectWeapon.CombatHud;
 using ProjectWeapon.CombatStatusUI;
 using ProjectWeapon.Dungeon;
+using ProjectWeapon.ExtractionUI;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Movement;
 using ProjectWeapon.Run;
@@ -71,6 +72,7 @@ namespace ProjectWeapon.SortieLoop
         private bool cleaningFailedLoad;
         private bool recoveryPending;
         private CombatHudPanel? combatStatus;
+        private ExtractionStatusPanel? extractionStatus;
         private RunLifecycleRelay lifecycle = null!;
         private Scene roomScene;
         private AsyncOperation? roomLoad;
@@ -121,6 +123,8 @@ namespace ProjectWeapon.SortieLoop
         {
             if (combatStatus && active is { } sortie)
                 combatStatus!.RefreshTime(sortie.Clock());
+            if (extractionStatus)
+                extractionStatus!.Render();
 
             if (!refreshLobby)
                 return;
@@ -166,6 +170,16 @@ namespace ProjectWeapon.SortieLoop
             status.Initialize(warehouseHangul);
             status.Bind(encounter.Health, sortie.Countdown, sortie.Field, weapons, sortie.Clock(), equipment.ActiveSlotIndex);
             equipment.ActiveSlotChanged += selected => status.RefreshEquipment(selected.SlotIndex);
+
+            var extractionObject = new GameObject("Extraction Status", typeof(RectTransform), typeof(ExtractionStatusPanel));
+            var extractionRect = (RectTransform)extractionObject.transform;
+            extractionRect.SetParent(ActiveHud.SafeAreaRoot, false);
+            extractionRect.anchorMin = extractionRect.anchorMax = extractionRect.pivot = new Vector2(.5f, 1f);
+            extractionRect.anchoredPosition = new Vector2(0f, -76f);
+            extractionRect.sizeDelta = new Vector2(336f, 68f);
+            var extraction = extractionObject.GetComponent<ExtractionStatusPanel>();
+            extraction.Initialize(sortie.Run, sortie.Countdown.Extraction, hangul);
+            extractionStatus = extraction;
         }
 
         private bool CanControlRoom(Room room) => room && room == ActiveRoom && !returning && !lifecycle.IsGameplayBlocked
@@ -188,6 +202,7 @@ namespace ProjectWeapon.SortieLoop
             }
             ActiveHud = null;
             combatStatus = null;
+            extractionStatus = null;
         }
 
         private void ShowLobby()

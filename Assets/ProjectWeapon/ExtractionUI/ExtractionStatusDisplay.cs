@@ -55,9 +55,9 @@ namespace ProjectWeapon.ExtractionUI
             {
                 string title = cancellation.Reason switch
                 {
-                    ExtractionCancelReason.Movement => "이동으로 귀환이 취소되었습니다.",
-                    ExtractionCancelReason.Damage => "피격으로 귀환이 취소되었습니다.",
-                    _ => "귀환이 취소되었습니다."
+                    ExtractionCancelReason.Movement => "이동으로 귀환 중단",
+                    ExtractionCancelReason.Damage => "공격으로 귀환 중단",
+                    _ => "귀환 중단"
                 };
                 return new ExtractionStatusDisplay(ExtractionStatusKind.Cancelled, title, 0, 0);
             }
