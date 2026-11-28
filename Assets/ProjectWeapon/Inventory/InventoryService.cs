@@ -14,7 +14,9 @@ namespace ProjectWeapon.Inventory
         MissingInstance,
         SourceMismatch,
         DestinationOccupied,
-        ProvenanceRestricted
+        ProvenanceRestricted,
+        DestinationMismatch,
+        DestinationRejected
     }
 
     /// <summary>Owns the current position of each weapon instance.</summary>
@@ -25,7 +27,7 @@ namespace ProjectWeapon.Inventory
         private readonly HashSet<WeaponInstanceId> issuedStarterLoans = new HashSet<WeaponInstanceId>();
         private readonly Dictionary<WeaponInstanceId, WeaponInstance> instances;
         private long carryRevision;
-        private bool startingSortie;
+        private bool coordinatingTransfer;
 
         public InventoryService(IReadOnlyList<WeaponInstance> initialInstances)
             : this(initialInstances, InventorySlotCapacity.Prototype)
@@ -70,7 +72,7 @@ namespace ProjectWeapon.Inventory
             WeaponInstanceId loanId = WeaponInstanceId.ForStarterLoan(runId);
             lock (sync)
             {
-                if (startingSortie)
+                if (coordinatingTransfer)
                     return new StarterLoanResult(StarterLoanStatus.InventoryNotPrepared);
 
                 if (instances.TryGetValue(loanId, out WeaponInstance existing))
@@ -135,7 +137,7 @@ namespace ProjectWeapon.Inventory
 
             lock (sync)
             {
-                if (startingSortie)
+                if (coordinatingTransfer)
                     return InventoryMoveResult.InvalidRequest;
 
                 if (!instances.TryGetValue(id, out WeaponInstance instance))
@@ -161,6 +163,73 @@ namespace ProjectWeapon.Inventory
             }
         }
 
+        /// <summary>Moves or exchanges run slots only if both displayed occupants still match.</summary>
+        public InventoryMoveResult MoveRunSlot(WeaponInstanceId id, WeaponLocation source,
+            WeaponLocation destination, WeaponInstanceId? destinationId)
+        {
+            if (!id.IsValid || (destinationId.HasValue && !destinationId.Value.IsValid)
+                || !IsRunSlot(source) || !IsRunSlot(destination))
+                return InventoryMoveResult.InvalidRequest;
+
+            lock (sync)
+            {
+                if (coordinatingTransfer)
+                    return InventoryMoveResult.InvalidRequest;
+                if (!instances.TryGetValue(id, out WeaponInstance moving))
+                    return InventoryMoveResult.MissingInstance;
+                if (!SamePosition(moving.Location, source))
+                    return InventoryMoveResult.SourceMismatch;
+                if (SamePosition(source, destination))
+                    return InventoryMoveResult.AlreadyAtDestination;
+
+                WeaponInstance? occupant = FindSlot(destination);
+                if (occupant?.Id != destinationId)
+                    return InventoryMoveResult.DestinationMismatch;
+
+                WeaponInstance incoming = AtLocation(moving, destination);
+                if (occupant != null)
+                    instances[occupant.Id] = AtLocation(occupant, source);
+                instances[id] = incoming;
+                if (source.Kind == WeaponLocationKind.Carried || destination.Kind == WeaponLocationKind.Carried)
+                    carryRevision++;
+                return InventoryMoveResult.Moved;
+            }
+        }
+
+        /// <summary>Removes one run slot item only after a destination has accepted it synchronously.</summary>
+        /// <remarks>The callback stages the item. Publish it after this method reports success.</remarks>
+        public InventoryMoveResult TryDropRunSlot(WeaponInstanceId id, WeaponLocation source,
+            Func<WeaponInstance, bool> acceptDestination)
+        {
+            if (!id.IsValid || !IsRunSlot(source) || acceptDestination == null)
+                return InventoryMoveResult.InvalidRequest;
+
+            lock (sync)
+            {
+                if (coordinatingTransfer)
+                    return InventoryMoveResult.InvalidRequest;
+                if (!instances.TryGetValue(id, out WeaponInstance item))
+                    return InventoryMoveResult.MissingInstance;
+                if (!SamePosition(item.Location, source))
+                    return InventoryMoveResult.SourceMismatch;
+
+                coordinatingTransfer = true;
+                try
+                {
+                    if (!acceptDestination(item))
+                        return InventoryMoveResult.DestinationRejected;
+                    instances.Remove(id);
+                    if (source.Kind == WeaponLocationKind.Carried)
+                        carryRevision++;
+                    return InventoryMoveResult.Moved;
+                }
+                finally
+                {
+                    coordinatingTransfer = false;
+                }
+            }
+        }
+
         /// <summary>Accepts an external weapon into the first unoccupied carry slot, or offers a choice.</summary>
         public InventoryPickupResult TryPickup(WeaponInstance? loot)
         {
@@ -169,7 +238,7 @@ namespace ProjectWeapon.Inventory
 
             lock (sync)
             {
-                if (startingSortie)
+                if (coordinatingTransfer)
                     return new InventoryPickupResult(InventoryPickupStatus.InvalidRequest);
 
                 if (instances.ContainsKey(loot.Id))
@@ -210,7 +279,7 @@ namespace ProjectWeapon.Inventory
 
             lock (sync)
             {
-                if (startingSortie)
+                if (coordinatingTransfer)
                     return new InventoryPickupResult(InventoryPickupStatus.InvalidRequest);
 
                 if (choice.Resolved || choice.CarryRevision != carryRevision)
@@ -257,7 +326,7 @@ namespace ProjectWeapon.Inventory
 
             lock (sync)
             {
-                if (startingSortie)
+                if (coordinatingTransfer)
                     return new SortieStartResult(SortieStartStatus.InventoryAlreadyReserved);
 
                 var equipped = new List<WeaponInstance>();
@@ -288,7 +357,7 @@ namespace ProjectWeapon.Inventory
                 for (int index = 0; index < reservations.Length; index++)
                     reservations[index] = AtLocation(equipped[index], reservedForRun);
 
-                startingSortie = true;
+                coordinatingTransfer = true;
                 try
                 {
                     if (!tryStartRun())
@@ -301,7 +370,7 @@ namespace ProjectWeapon.Inventory
                 }
                 finally
                 {
-                    startingSortie = false;
+                    coordinatingTransfer = false;
                 }
             }
         }
@@ -326,15 +395,17 @@ namespace ProjectWeapon.Inventory
             return true;
         }
 
-        private bool IsOccupied(WeaponLocation destination)
+        private bool IsOccupied(WeaponLocation destination) => FindSlot(destination) != null;
+
+        private WeaponInstance? FindSlot(WeaponLocation destination)
         {
             foreach (WeaponInstance instance in instances.Values)
             {
                 if (SamePosition(instance.Location, destination))
-                    return true;
+                    return instance;
             }
 
-            return false;
+            return null;
         }
 
         private bool FitsCapacity(WeaponLocation location) => location.Kind switch
@@ -347,6 +418,9 @@ namespace ProjectWeapon.Inventory
         private bool IsMoveLocation(WeaponLocation location) =>
             location.IsValid && (location.Kind == WeaponLocationKind.Warehouse || location.SlotIndex.HasValue)
                 && FitsCapacity(location);
+
+        private bool IsRunSlot(WeaponLocation location)
+            => location.IsValid && location.SlotIndex.HasValue && FitsCapacity(location);
 
         private static bool SamePosition(WeaponLocation first, WeaponLocation second) =>
             first.Kind == second.Kind && first.SlotIndex == second.SlotIndex;
