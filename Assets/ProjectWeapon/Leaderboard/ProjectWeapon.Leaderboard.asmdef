@@ -1,0 +1,9 @@
+{
+    "name": "ProjectWeapon.Leaderboard",
+    "rootNamespace": "ProjectWeapon.Leaderboard",
+    "references": [
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Weapons"
+    ]
+}

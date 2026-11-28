@@ -1,0 +1,16 @@
+{
+    "name": "ProjectWeapon.Leaderboard.Tests",
+    "rootNamespace": "ProjectWeapon.Leaderboard.Tests",
+    "references": [
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Leaderboard",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}
