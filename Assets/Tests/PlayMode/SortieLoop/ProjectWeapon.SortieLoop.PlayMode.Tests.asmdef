@@ -1,0 +1,22 @@
+{
+    "name": "ProjectWeapon.SortieLoop.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.SortieLoop.Tests",
+    "references": [
+        "ProjectWeapon.Chest",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Enemies.Ranged",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Loot",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement",
+        "ProjectWeapon.SortieLoop",
+        "ProjectWeapon.Weapons",
+        "ProjectWeapon.ZoneOneGreybox",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
