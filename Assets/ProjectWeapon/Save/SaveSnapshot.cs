@@ -20,11 +20,13 @@ namespace ProjectWeapon.Save
         [SerializeField] private SettlementSaveRecord[] settlements;
         [SerializeField] private CoinWeaponDrawSaveRecord[]? coinWeaponDraws;
         [SerializeField] private WeaponSaleSaveRecord[]? weaponSales;
+        [SerializeField] private CatalogMilestoneSaveRecord[]? catalogMilestones;
 
         public SaveSnapshot(long revision, long confirmedCoins, IEnumerable<WeaponInstance> weapons,
             IEnumerable<CatalogSaveRecord> catalog, IEnumerable<SettlementSaveRecord> settlements,
             IEnumerable<CoinWeaponDrawSaveRecord>? coinWeaponDraws = null,
-            IEnumerable<WeaponSaleSaveRecord>? weaponSales = null)
+            IEnumerable<WeaponSaleSaveRecord>? weaponSales = null,
+            IEnumerable<CatalogMilestoneSaveRecord>? catalogMilestones = null)
         {
             this.revision = revision;
             this.confirmedCoins = confirmedCoins;
@@ -33,6 +35,7 @@ namespace ProjectWeapon.Save
             this.settlements = (settlements ?? throw new ArgumentNullException(nameof(settlements))).ToArray();
             this.coinWeaponDraws = coinWeaponDraws?.ToArray();
             this.weaponSales = weaponSales?.ToArray();
+            this.catalogMilestones = catalogMilestones?.ToArray();
             Validate();
         }
 
@@ -61,6 +64,19 @@ namespace ProjectWeapon.Save
             record = null;
             return false;
         }
+
+        public IReadOnlyList<CatalogMilestoneSaveRecord> CatalogMilestones =>
+            Array.AsReadOnly(catalogMilestones ?? Array.Empty<CatalogMilestoneSaveRecord>());
+
+        /// <summary>Advances the revision and retains all unchanged saved transaction collections.</summary>
+        public SaveSnapshot Next(long confirmedCoins, IEnumerable<WeaponInstance>? weapons = null,
+            IEnumerable<CatalogSaveRecord>? catalog = null, IEnumerable<SettlementSaveRecord>? settlements = null,
+            IEnumerable<CoinWeaponDrawSaveRecord>? coinWeaponDraws = null,
+            IEnumerable<WeaponSaleSaveRecord>? weaponSales = null,
+            IEnumerable<CatalogMilestoneSaveRecord>? catalogMilestones = null) =>
+            new SaveSnapshot(checked(revision + 1), confirmedCoins, weapons ?? this.weapons, catalog ?? this.catalog,
+                settlements ?? this.settlements, coinWeaponDraws ?? this.coinWeaponDraws,
+                weaponSales ?? this.weaponSales, catalogMilestones ?? this.catalogMilestones);
 
         public bool TryGetCoinWeaponDraw(Guid requestId, out CoinWeaponDrawSaveRecord? record)
         {
@@ -123,6 +139,26 @@ namespace ProjectWeapon.Save
                     throw new InvalidDataException("A settlement record is invalid or duplicates a run or transaction ID.");
             }
 
+            var saleRequestIds = new HashSet<Guid>();
+            var soldInstanceIds = new HashSet<WeaponInstanceId>();
+            foreach (WeaponSaleSaveRecord sale in weaponSales ?? Array.Empty<WeaponSaleSaveRecord>())
+            {
+                if (sale == null || !sale.IsValid || !saleRequestIds.Add(sale.RequestId)
+                    || !soldInstanceIds.Add(sale.InstanceId))
+                    throw new InvalidDataException("A weapon sale receipt is invalid or duplicates a request or sold instance ID.");
+            }
+
+            if (soldInstanceIds.Count != 0 && weapons.Any(weapon => soldInstanceIds.Contains(weapon.Id)))
+                throw new InvalidDataException("A sold instance is still present in the inventory.");
+
+            var milestoneThresholds = new HashSet<int>();
+            foreach (CatalogMilestoneSaveRecord milestone in catalogMilestones ?? Array.Empty<CatalogMilestoneSaveRecord>())
+            {
+                if (milestone == null || !milestone.IsValid || !milestoneThresholds.Add(milestone.RecoveredThreshold)
+                    || !runIds.Contains(milestone.SourceRunId))
+                    throw new InvalidDataException("A catalog milestone receipt is invalid or duplicates a threshold.");
+            }
+
             var drawRequestIds = new HashSet<Guid>();
             var awardedInstanceIds = new HashSet<WeaponInstanceId>();
             foreach (CoinWeaponDrawSaveRecord purchase in coinWeaponDraws ?? Array.Empty<CoinWeaponDrawSaveRecord>())
@@ -136,18 +172,6 @@ namespace ProjectWeapon.Save
                         throw new InvalidDataException("Coin draw receipts award the same instance ID more than once.");
                 }
             }
-
-            var saleRequestIds = new HashSet<Guid>();
-            var soldInstanceIds = new HashSet<WeaponInstanceId>();
-            foreach (WeaponSaleSaveRecord sale in weaponSales ?? Array.Empty<WeaponSaleSaveRecord>())
-            {
-                if (sale == null || !sale.IsValid || !saleRequestIds.Add(sale.RequestId)
-                    || !soldInstanceIds.Add(sale.InstanceId))
-                    throw new InvalidDataException("A weapon sale receipt is invalid or duplicates a request or sold instance ID.");
-            }
-
-            if (soldInstanceIds.Count != 0 && weapons.Any(weapon => soldInstanceIds.Contains(weapon.Id)))
-                throw new InvalidDataException("A sold instance is still present in the inventory.");
         }
     }
 
