@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ada85e3da58d044d1b336f67466bb6f, type: 3}
+  m_Name: WandererLocomotion
+  m_EditorClassIdentifier: ProjectWeapon.WandererArt::ProjectWeapon.Art.Wanderer.WandererLocomotionSet
+  idle:
+  - {fileID: -74756452, guid: 79915c173018f184fb3d8cb0352be3ba, type: 3}
+  - {fileID: 1957681731, guid: 79915c173018f184fb3d8cb0352be3ba, type: 3}
+  - {fileID: -1496498732, guid: 79915c173018f184fb3d8cb0352be3ba, type: 3}
+  - {fileID: 1064820960, guid: 79915c173018f184fb3d8cb0352be3ba, type: 3}
+  - {fileID: -1337822097, guid: 79915c173018f184fb3d8cb0352be3ba, type: 3}
+  - {fileID: 1884270102, guid: 79915c173018f184fb3d8cb0352be3ba, type: 3}
+  - {fileID: 2081856338, guid: 79915c173018f184fb3d8cb0352be3ba, type: 3}
+  - {fileID: -1539483047, guid: 79915c173018f184fb3d8cb0352be3ba, type: 3}
+  walk:
+  - {fileID: -2010850340, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 523930569, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 77358405, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: -630778219, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: -1026469141, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 1271385279, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: -290877464, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 201414904, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 706262393, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: -1343757406, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: -2054377987, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 1745293853, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 2052090913, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 102093815, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 201937661, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 673920126, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 279085038, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 666995516, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 1137607539, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: 281964334, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: -560253144, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: -989123206, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: -1265007090, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  - {fileID: -1910292615, guid: 1d6f4fa190fdc144595481110d808bd8, type: 3}
+  dodge:
+  - {fileID: 422735885, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: 1710993222, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: 1048345771, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: 810944734, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: -1147723134, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: -130418979, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: -638427526, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: 1630578238, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: 320741934, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: 1356536681, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: 745852719, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: 1234773074, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: 1275977607, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: 1333525533, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: -314169223, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
+  - {fileID: -973879865, guid: 41e9221191562254aae6d1cb8072bf45, type: 3}
