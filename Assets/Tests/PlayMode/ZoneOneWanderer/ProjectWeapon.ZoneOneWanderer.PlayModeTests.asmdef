@@ -1,0 +1,15 @@
+{
+    "name": "ProjectWeapon.ZoneOneWanderer.PlayModeTests",
+    "references": [
+        "ProjectWeapon.CombatHud",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.SortieLoop",
+        "ProjectWeapon.WandererArt",
+        "ProjectWeapon.ZoneOneGreybox",
+        "Unity.InputSystem",
+        "UnityEngine.UI"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
