@@ -1,0 +1,15 @@
+{
+    "name": "ProjectWeapon.CoinDrawUI.PlayModeTests",
+    "rootNamespace": "ProjectWeapon.CoinDrawUI.Tests",
+    "references": [
+        "ProjectWeapon.CoinDrawUI",
+        "ProjectWeapon.CoinWeaponDraw",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.WeaponDraw",
+        "ProjectWeapon.Weapons",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
