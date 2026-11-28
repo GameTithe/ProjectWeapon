@@ -1,6 +1,6 @@
 {
     "name": "ProjectWeapon.Movement.PlayModeTests",
     "rootNamespace": "ProjectWeapon.Movement.Tests",
-    "references": ["ProjectWeapon.Movement", "Unity.ugui", "Unity.InputSystem"],
+    "references": ["ProjectWeapon.Movement", "ProjectWeapon.Player", "ProjectWeapon.Run", "Unity.ugui", "Unity.InputSystem"],
     "optionalUnityReferences": ["TestAssemblies"]
 }
