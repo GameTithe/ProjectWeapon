@@ -1,0 +1,15 @@
+{
+    "name": "ProjectWeapon.WarehouseUI.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.WarehouseUI.Tests",
+    "references": [
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.WarehouseUI",
+        "ProjectWeapon.WeaponSale",
+        "ProjectWeapon.Weapons",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
