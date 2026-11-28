@@ -1,6 +1,8 @@
 # KAN-174 전투 HUD
 
-`CombatHudPanel`은 기존 플레이어 체력, 구역 타이머, 인벤토리와 무기 카탈로그를 읽어 상단에 체력 바·현재/최대 HP·남은 시간·장착 슬롯 두 칸을 표시한다. 실제 선택된 장착 칸에는 왼쪽 표시선을 켠다. [KAN-174](https://gametithe.atlassian.net/browse/KAN-174) · [KAN-70](https://gametithe.atlassian.net/browse/KAN-70) · [KAN-89](https://gametithe.atlassian.net/browse/KAN-89)
+`CombatHudPanel`은 기존 플레이어 체력, 구역 타이머, 인벤토리와 무기 카탈로그를 읽어 상단에 체력 바·현재/최대 HP·남은 시간·장착 슬롯 두 칸을 표시한다. 실제 선택된 장착 칸에는 왼쪽 표시선을 켠다. 폐성 출격에서는 기존 액션 HUD의 안전 영역에 배치되고, 같은 런·장착 선택을 읽으며 복구 대기나 정산에서 해당 HUD와 함께 숨겨진다. [KAN-174](https://gametithe.atlassian.net/browse/KAN-174) · [KAN-70](https://gametithe.atlassian.net/browse/KAN-70) · [KAN-89](https://gametithe.atlassian.net/browse/KAN-89) · [KAN-176](https://gametithe.atlassian.net/browse/KAN-176)
+
+독립 패널에 만료 상태를 전달하면 `00:00`을 표시한다. 실제 폐성에서는 남은 시간이 양수인 마지막 구간에 `00:01`을 표시하며, 최초 만료 시각에 남은 시간 0으로 결과를 확정하고 HUD를 정산 화면으로 교체한다. 실제 로비에서 두 무기를 장착한 뒤 원거리 적의 피해 6, 타이머, 터치 장착 전환, 만료 경계를 자동 검증한다.
 
 ## 연결
 
