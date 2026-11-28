@@ -1,0 +1,9 @@
+{
+    "name": "ProjectWeapon.DailyMissions",
+    "rootNamespace": "ProjectWeapon.DailyMissions",
+    "references": [
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement"
+    ]
+}

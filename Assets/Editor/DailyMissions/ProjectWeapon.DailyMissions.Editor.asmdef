@@ -1,0 +1,7 @@
+{
+    "name": "ProjectWeapon.DailyMissions.Editor",
+    "rootNamespace": "ProjectWeapon.DailyMissions.Editor",
+    "references": ["ProjectWeapon.DailyMissions"],
+    "includePlatforms": ["Editor"],
+    "autoReferenced": false
+}

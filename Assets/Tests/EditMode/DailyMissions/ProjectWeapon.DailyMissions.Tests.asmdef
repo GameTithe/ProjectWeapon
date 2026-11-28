@@ -1,0 +1,21 @@
+{
+    "name": "ProjectWeapon.DailyMissions.Tests",
+    "rootNamespace": "ProjectWeapon.DailyMissions.Tests",
+    "references": [
+        "ProjectWeapon.DailyMissions",
+        "ProjectWeapon.DailyMissions.Editor",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement",
+        "ProjectWeapon.Wallet",
+        "ProjectWeapon.Weapons",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": ["Editor"],
+    "overrideReferences": true,
+    "precompiledReferences": ["nunit.framework.dll"],
+    "autoReferenced": false,
+    "defineConstraints": ["UNITY_INCLUDE_TESTS"]
+}
