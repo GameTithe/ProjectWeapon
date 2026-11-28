@@ -34,6 +34,7 @@ namespace ProjectWeapon.SortieLoop
     [DisallowMultipleComponent]
     public sealed class SortieLoopHost : MonoBehaviour
     {
+        private const int CastleZoneId = 1;
         private const string RoomScene = "ZoneOneGreybox";
         private const string ProfileDirectory = "ZoneOnePrototype";
 
@@ -77,6 +78,11 @@ namespace ProjectWeapon.SortieLoop
         private Scene roomScene;
         private AsyncOperation? roomLoad;
         private TMP_Text retryLabel = null!;
+        private ZoneSelectionPanel zonesPanel = null!;
+        private Button openZones = null!;
+        private ZoneProgression? progression;
+        private int selectedZoneId = CastleZoneId;
+        private bool restoreZonesAfterEquipment;
 
         public Room? ActiveRoom { get; private set; }
         public CombatActionHud? ActiveHud { get; private set; }
@@ -101,7 +107,8 @@ namespace ProjectWeapon.SortieLoop
             store = new AtomicSnapshotStore(overriddenPath ?? Path.Combine(Application.persistentDataPath,
                 ProfileDirectory, "snapshot.json"));
             results.Initialize(weapons, hangul);
-            openEquipment.onClick.AddListener(OpenEquipment);
+            openEquipment.onClick.AddListener(() => OpenEquipment(CastleZoneId, fromZones: false));
+            BindZoneSelection();
             openWarehouse.onClick.AddListener(OpenWarehouse);
             openCatalog.onClick.AddListener(OpenCatalog);
             catalogList.Initialize(catalogHangul, ReadCatalogSnapshot);
@@ -205,12 +212,33 @@ namespace ProjectWeapon.SortieLoop
             extractionStatus = null;
         }
 
+        private void BindZoneSelection()
+        {
+            var font = Resources.Load<TMP_FontAsset>("KAN173/ZoneSelectionHangul");
+            if (!font)
+                throw new InvalidOperationException("The zone selection font is missing.");
+
+            zonesPanel = new ZoneSelectionPanel(equipmentAnchor, font, zones.GetZones(),
+                zoneId => OpenEquipment(zoneId, fromZones: true), CloseZoneSelection);
+            var card = (RectTransform)openEquipment.transform.parent;
+            openZones = ZoneSelectionPanel.CreateButton(card, "Open Zones", "구역 선택", font,
+                .103f, .075f, .297f, .24f, OpenZoneSelection);
+            ZoneSelectionPanel.SetAnchors((RectTransform)openEquipment.transform, .303f, .075f, .497f, .24f);
+            ZoneSelectionPanel.SetAnchors((RectTransform)openWarehouse.transform, .503f, .075f, .697f, .24f);
+            ZoneSelectionPanel.SetAnchors((RectTransform)openCatalog.transform, .703f, .075f, .897f, .24f);
+        }
+
         private void ShowLobby()
         {
             town = null;
+            progression = null;
+            selectedZoneId = CastleZoneId;
+            restoreZonesAfterEquipment = false;
+            zonesPanel.Close();
             lobby.SetActive(true);
             retry.gameObject.SetActive(false);
             loading.gameObject.SetActive(false);
+            openZones.interactable = false;
             openEquipment.interactable = false;
             openWarehouse.interactable = false;
             if (equipment != null) equipment.gameObject.SetActive(false);
@@ -240,10 +268,12 @@ namespace ProjectWeapon.SortieLoop
             }
 
             town = new InventoryService(profile.Weapons);
+            progression = ZoneProgression.Restore(zones, profile);
             int warehouseCount = profile.Weapons.Count(item => item.Location.Kind == WeaponLocationKind.Warehouse);
             lobbyStatus.text = $"창고 무기 {warehouseCount}개";
             BuildEquipmentPanel();
-            openEquipment.interactable = true;
+            openZones.interactable = true;
+            openEquipment.interactable = CanEnterZone(CastleZoneId);
             openWarehouse.interactable = true;
         }
 
@@ -279,19 +309,58 @@ namespace ProjectWeapon.SortieLoop
             rect.offsetMin = rect.offsetMax = Vector2.zero;
             equipment = root.GetComponent<SortieEquipmentPanel>();
             equipment.Initialize(town!, weapons, hangul, IsReady, ConfirmSortie);
-            equipment.Dismissed += () => lobby.SetActive(true);
+            equipment.Dismissed += DismissEquipment;
             equipment.Confirmed += _ => LoadRoom();
         }
 
-        private bool IsReady() => town != null && profile != null && active == null && !returning && lifecycle.IsAvailable
+        private bool CanEnterZone(int zoneId) => zoneId == CastleZoneId
             && Application.CanStreamedLevelBeLoaded(RoomScene) && !SceneManager.GetSceneByName(RoomScene).isLoaded;
 
-        private void OpenEquipment()
+        private bool IsTownReady() => town != null && profile != null && active == null && !returning && lifecycle.IsAvailable;
+
+        private bool IsReady() => IsReady(selectedZoneId);
+
+        private bool IsReady(int zoneId) => IsTownReady() && progression?.IsUnlocked(zoneId) == true && CanEnterZone(zoneId);
+
+        private void OpenZoneSelection()
         {
-            if (!lobby.activeSelf || !IsReady())
+            if (!lobby.activeSelf || !IsTownReady() || progression == null)
                 return;
+
+            lobby.SetActive(false);
+            zonesPanel.Open(progression, CanEnterZone);
+        }
+
+        private void CloseZoneSelection()
+        {
+            if (!zonesPanel.IsOpen || active != null || returning)
+                return;
+
+            zonesPanel.Close();
+            lobby.SetActive(true);
+        }
+
+        private void OpenEquipment(int zoneId, bool fromZones)
+        {
+            if (!(fromZones ? zonesPanel.IsOpen : lobby.activeSelf) || !IsReady(zoneId))
+                return;
+
+            selectedZoneId = zoneId;
+            restoreZonesAfterEquipment = fromZones;
+            zonesPanel.Close();
             lobby.SetActive(false);
             equipment!.Open();
+        }
+
+        private void DismissEquipment()
+        {
+            if (restoreZonesAfterEquipment && progression != null)
+            {
+                zonesPanel.Open(progression, CanEnterZone);
+                return;
+            }
+
+            lobby.SetActive(true);
         }
 
         private void OpenCatalog()
@@ -359,7 +428,7 @@ namespace ProjectWeapon.SortieLoop
             TimeSpan Elapsed() => TimeSpan.FromSeconds(clock() - origin);
             var run = new RunState(Elapsed);
             var countdown = new ZoneRunCountdown(zones, run);
-            SortieStartResult start = new SortieStarter(proposedTown, countdown).TryStart(id, 1);
+            SortieStartResult start = new SortieStarter(proposedTown, countdown).TryStart(id, selectedZoneId);
             if (start.Status != SortieStartStatus.Started || start.Manifest == null)
                 return start;
 
@@ -490,6 +559,10 @@ namespace ProjectWeapon.SortieLoop
                 definitions.TryGetValue(equipped.DefinitionId, out WeaponDefinition definition);
                 room.BindRun(active.Run, active.Countdown, active.Clock, active.Field, definition);
                 BindCombatHud(room, active);
+                var boss = room.Encounter.Boss.Boss!;
+                var defeat = new BossDefeatTracker(active.Run, boss.TargetId);
+                boss.Defeated += (id, target, time) => defeat.TryRecordEnemyDeath(id, target, time);
+                active.BossDefeat = defeat;
                 ActiveRoom = room;
                 active.HasEntered = true;
                 room.SetRecoveryBlocked(lifecycle.IsGameplayBlocked);
@@ -564,11 +637,15 @@ namespace ProjectWeapon.SortieLoop
             if (active?.Result is not { } result || active.HeldAtEnd == null || returning || recoveryPending)
                 return;
 
+            Func<SaveSnapshot, int?>? proposeNextZone = null;
+            if (result.Succeeded && active.BossDefeat?.Evidence is BossDefeatEvidence defeat)
+                proposeNextZone = current => ZoneProgression.Restore(zones, current).ProposeNextUnlock(result, defeat);
+
             RunSettlementCommit? commit = null;
             try
             {
                 commit = new RunSettlementCoordinator(store).TrySettle(result, active.Manifest, active.HeldAtEnd,
-                    active.Wallet, requireExactReservations: true);
+                    active.Wallet, requireExactReservations: true, proposeNextZone: proposeNextZone);
             }
             catch (IOException)
             {
@@ -627,6 +704,9 @@ namespace ProjectWeapon.SortieLoop
                 OfferRoomRetry();
         }
 
+        /// <summary>Reads the active profile's confirmed unlocks for the zone menu.</summary>
+        public ZoneProgression ReadZoneProgression() => ZoneProgression.Restore(zones, store.Load());
+
         private void FinishReturning()
         {
             lifecycle.ClearRun();
@@ -659,6 +739,7 @@ namespace ProjectWeapon.SortieLoop
             internal InventoryService Field { get; }
             internal RunCoinAccumulator Wallet { get; }
             internal RunResult? Result { get; set; }
+            internal BossDefeatTracker? BossDefeat { get; set; }
             internal IReadOnlyList<WeaponInstance>? HeldAtEnd { get; set; }
             internal SettlementSaveRecord? Receipt { get; set; }
             internal bool HasEntered { get; set; }

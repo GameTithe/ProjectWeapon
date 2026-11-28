@@ -31,7 +31,7 @@ using TouchPhase = UnityEngine.InputSystem.TouchPhase;
 
 namespace ProjectWeapon.SortieLoop.Tests
 {
-    public sealed class SortieLoopTests
+    public sealed partial class SortieLoopTests
     {
         private const string LobbyPath = "Assets/Scenes/SortieLoop/SortieLoop.unity";
         private const string RoomName = "ZoneOneGreybox";
@@ -71,7 +71,7 @@ namespace ProjectWeapon.SortieLoop.Tests
             yield return LoadLobby(path);
         }
 
-        private IEnumerator LoadLobby(string path)
+        private IEnumerator LoadLobby(string path, Action<SortieLoopHost>? arrange = null)
         {
             void ConfigureLobby(Scene scene, LoadSceneMode mode)
             {
@@ -81,6 +81,7 @@ namespace ProjectWeapon.SortieLoop.Tests
                 lobby = scene;
                 host = scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<SortieLoopHost>(true))
                     .Single();
+                arrange?.Invoke(host);
                 host.Configure(path, () => clock);
             }
 
@@ -204,6 +205,8 @@ namespace ProjectWeapon.SortieLoop.Tests
             Assert.That(VisibleResultTitle()?.text, Is.EqualTo("귀환 성공"));
             SaveSnapshot written = store.Load()!;
             RunSettlementDetails details = ReadReceipt(written, firstRun, RunEndReason.Extracted);
+            Assert.That(details.UnlockedZoneId, Is.Null);
+            Assert.That(host.ReadZoneProgression().HighestUnlockedZoneId, Is.EqualTo(1));
             AssertWarehouse(written, sword);
             AssertWarehouse(written, warehouseSpare);
             AssertWarehouse(written, loot);
@@ -234,6 +237,8 @@ namespace ProjectWeapon.SortieLoop.Tests
         {
             yield return StartSortie(chooseSword: true);
             Room room = host.ActiveRoom!;
+            Assert.That(host.ReadZoneProgression().HighestUnlockedZoneId, Is.EqualTo(1));
+            DeliverLethalBossHit(room);
             yield return DefeatRangedEnemy(room);
             room.Player.position = room.ExtractionCenter;
             yield return null;
@@ -251,13 +256,23 @@ namespace ProjectWeapon.SortieLoop.Tests
                 Assert.That(VisibleResultTitle(), Is.Null);
                 Assert.That(ButtonNamed("Retry Settlement").interactable, Is.True);
                 Assert.That(store.Load()!.Settlements, Is.Empty);
+                Assert.That(host.ReadZoneProgression().HighestUnlockedZoneId, Is.EqualTo(1));
             }
 
             Click(ButtonNamed("Retry Settlement"));
             yield return null;
             Assert.That(VisibleResultTitle()?.text, Is.EqualTo("귀환 성공"));
             Assert.That(store.Load()!.Settlements, Has.Count.EqualTo(1));
-            ReadReceipt(store.Load()!, room.Run.CurrentRun!.Id, RunEndReason.Extracted);
+            RunSettlementDetails receipt = ReadReceipt(store.Load()!, room.Run.CurrentRun!.Id, RunEndReason.Extracted);
+            Assert.That(receipt.UnlockedZoneId, Is.EqualTo(2));
+            Assert.That(host.ReadZoneProgression().HighestUnlockedZoneId, Is.EqualTo(2));
+
+            yield return ReturnToLobby();
+            yield return SceneManager.UnloadSceneAsync(lobby);
+            yield return LoadLobby(Path.Combine(profileDirectory!, "snapshot.json"));
+            Assert.That(host.ReadZoneProgression().HighestUnlockedZoneId, Is.EqualTo(2));
+            Assert.That(store.Load()!.Settlements, Has.Count.EqualTo(1));
+            yield return AssertReopenedZonesReadDurableUnlock();
         }
 
         [UnityTest]
@@ -266,6 +281,7 @@ namespace ProjectWeapon.SortieLoop.Tests
             yield return StartSortie(chooseSword: true);
             Room room = host.ActiveRoom!;
             RunId run = room.Run.CurrentRun!.Id;
+            DeliverLethalBossHit(room);
             yield return OpenChestAndPickUp(room);
             WeaponInstance loot = pickedUp!;
 
@@ -288,6 +304,8 @@ namespace ProjectWeapon.SortieLoop.Tests
             Assert.That(room.Run.Result.Remaining, Is.EqualTo(TimeSpan.Zero));
             SaveSnapshot written = store.Load()!;
             RunSettlementDetails details = ReadReceipt(written, run, RunEndReason.TimeExpired);
+            Assert.That(details.UnlockedZoneId, Is.Null);
+            Assert.That(host.ReadZoneProgression().HighestUnlockedZoneId, Is.EqualTo(1));
             CollectionAssert.AreEqual(new[] { warehouseSpare.Id }, written.Weapons.Select(item => item.Id));
             CollectionAssert.AreEquivalent(new[] { sword.Id.ToString(), loot.Id.ToString() },
                 details.LostWeapons.Select(item => item.InstanceId));
@@ -616,6 +634,10 @@ namespace ProjectWeapon.SortieLoop.Tests
             Button open = ButtonNamed("Open Equipment");
             Assert.That(open.interactable, Is.False);
             open.onClick.Invoke();
+            Button zones = ButtonNamed("Open Zones");
+            Assert.That(zones.interactable, Is.False);
+            zones.onClick.Invoke();
+            Assert.That(VisibleButtons("Select Zone 1"), Is.Empty);
             yield return null;
             Assert.That(host.IsInLobby, Is.True);
             Assert.That(host.ActiveManifest, Is.Null);
@@ -874,7 +896,7 @@ namespace ProjectWeapon.SortieLoop.Tests
             yield return Tap(5, ButtonNamed("Weapon Slot 2"));
             Assert.That(ButtonNamed("Weapon Slot 2").interactable, Is.False);
             Assert.That(ButtonNamed("Weapon Slot 1").interactable, Is.True);
-            Assert.That(ButtonNamed("Skill").interactable, Is.False);
+            Assert.That(ButtonNamed("Skill").interactable, Is.True);
             Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.EqualTo(before - 10f));
 
             yield return Tap(6, ButtonNamed("Weapon Slot 1"));
@@ -1045,6 +1067,17 @@ namespace ProjectWeapon.SortieLoop.Tests
             Assert.That(pickedUp.Id, Is.EqualTo(drop.Item!.Id));
             Assert.That(pickedUp.Location.Kind, Is.EqualTo(WeaponLocationKind.Carried));
             Assert.That(drop.gameObject.activeSelf, Is.False);
+        }
+
+        private void DeliverLethalBossHit(Room room)
+        {
+            var actor = room.Encounter.Boss;
+            var position = new WorldPoint2D(actor.transform.position.x, actor.transform.position.y);
+            var target = new TargetCandidate(actor.Boss!.TargetId, position, true, true);
+            AreaDamageRequest strike = AreaDamageRequest.Circle(Guid.NewGuid(), "test-strike", position, 1, actor.Boss.Health);
+            DamageRequest hit = AreaDamageSelector.FindTargets(strike, new[] { target }).Single();
+            Assert.That(actor.ApplyDamage(hit, TimeSpan.FromSeconds(clock - sortieOrigin)), Is.True);
+            Assert.That(actor.Boss.IsDead, Is.True);
         }
 
         private IEnumerator DefeatRangedEnemy(Room room)

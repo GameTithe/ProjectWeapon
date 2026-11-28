@@ -6,6 +6,7 @@
         "ProjectWeapon.CombatHud",
         "ProjectWeapon.CombatStatusUI",
         "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Enemies.Boss",
         "ProjectWeapon.Extraction",
         "ProjectWeapon.ExtractionUI",
         "ProjectWeapon.Inventory",
@@ -24,6 +25,7 @@
         "ProjectWeapon.WeaponSwitch",
         "ProjectWeapon.Weapons",
         "ProjectWeapon.ZoneOneGreybox",
+        "ProjectWeapon.ZoneProgression",
         "Unity.TextMeshPro",
         "UnityEngine.UI"
     ]
