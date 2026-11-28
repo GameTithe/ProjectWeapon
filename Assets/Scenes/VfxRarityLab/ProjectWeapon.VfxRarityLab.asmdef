@@ -1,0 +1,6 @@
+{
+    "name": "ProjectWeapon.VfxRarityLab",
+    "rootNamespace": "ProjectWeapon.VfxRarityLab",
+    "references": ["Unity.InputSystem"],
+    "autoReferenced": false
+}

@@ -1,0 +1,11 @@
+{
+    "name": "ProjectWeapon.VfxRarityLab.Editor",
+    "rootNamespace": "ProjectWeapon.VfxRarityLab.Editor",
+    "references": [
+        "ProjectWeapon.VfxRarityLab",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Universal.2D.Runtime"
+    ],
+    "includePlatforms": ["Editor"],
+    "autoReferenced": false
+}
