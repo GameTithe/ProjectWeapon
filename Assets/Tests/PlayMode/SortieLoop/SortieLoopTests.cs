@@ -814,6 +814,46 @@ namespace ProjectWeapon.SortieLoop.Tests
             Assert.That(ButtonNamed("Skill").interactable, Is.True);
         }
 
+        [UnityTest]
+        public IEnumerator ActualDaggerFollowUpBlocksSlotChangeUntilItsSecondHit()
+        {
+            WeaponInstance dagger = PersonalWeapon("dagger");
+            SaveSnapshot previous = store.Load()!;
+            SaveSnapshot withDagger = previous.Next(previous.ConfirmedCoins, weapons: new[] { sword, dagger });
+            Assert.That(store.Commit(previous.Revision, withDagger).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+            yield return SceneManager.UnloadSceneAsync(lobby);
+            yield return LoadLobby(Path.Combine(profileDirectory!, "snapshot.json"));
+            yield return EnterWithTouch(chooseTwo: true);
+
+            Room room = host.ActiveRoom!;
+            Assert.That(host.ActiveManifest!.Equipped[1].Id, Is.EqualTo(dagger.Id));
+            yield return Tap(5, ButtonNamed("Weapon Slot 2"));
+            SetElapsed(TimeSpan.FromSeconds(1));
+            room.Player.position = new Vector2(10.6f, 6.4f);
+            Physics2D.SyncTransforms();
+
+            float before = room.Encounter.Ranged.Brain.CurrentHealth;
+            yield return WaitUntilOrFail(() => room.Encounter.Ranged.Brain.CurrentHealth < before,
+                "The real dagger did not start its attack.");
+            Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.EqualTo(before - 5f));
+            host.ActiveHud!.Refresh();
+            Button firstSlot = ButtonNamed("Weapon Slot 1");
+            Assert.That(firstSlot.interactable, Is.False);
+            Vector2 firstSlotCenter = Center(firstSlot);
+            yield return Touch(6, firstSlotCenter, TouchPhase.Began);
+            yield return Touch(6, firstSlotCenter, TouchPhase.Ended);
+            Assert.That(ButtonNamed("Skill").interactable, Is.False);
+
+            SetElapsed(TimeSpan.FromSeconds(1.12));
+            yield return WaitUntilOrFail(() => room.Encounter.Ranged.Brain.CurrentHealth == before - 10f,
+                "The original dagger's follow-up did not resolve.");
+            host.ActiveHud.Refresh();
+            Assert.That(firstSlot.interactable, Is.True);
+            Assert.That(ButtonNamed("Skill").interactable, Is.False);
+            yield return Tap(7, firstSlot);
+            Assert.That(ButtonNamed("Skill").interactable, Is.True);
+        }
+
         private IEnumerator EnterWithTouch(bool chooseTwo = false)
         {
             touchscreen = InputSystem.AddDevice<Touchscreen>();

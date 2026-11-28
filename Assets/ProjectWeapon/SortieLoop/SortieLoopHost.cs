@@ -138,16 +138,17 @@ namespace ProjectWeapon.SortieLoop
         {
             PlayerMovement movement = room.Movement
                 ?? throw new InvalidOperationException("The combat room needs a movement controller.");
-            var equipment = new EquippedWeaponSelection(sortie.Run, sortie.Field, weapons,
-                () => movement.IsDodging, new WeaponActionLocks());
             Encounter encounter = room.Encounter
                 ? room.Encounter : throw new InvalidOperationException("The combat room needs an encounter.");
+            bool IsWeaponActionBusy() => movement.IsDodging || encounter.IsWeaponActionBusy;
+            var equipment = new EquippedWeaponSelection(sortie.Run, sortie.Field, weapons,
+                IsWeaponActionBusy, new WeaponActionLocks());
             var skills = encounter.BindPlayerEquipment(equipment, () => movement.IsDodging);
 
             ActiveHud = CombatActionHud.Create(combatCanvas, combatJoystick, hangul);
             ActiveHud.Bind(new CombatHudBindings(sortie.Run, movement, combatMovementSettings, sortie.Field,
                 equipment, skills, sortie.Clock, () => CanControlRoom(room), () => room.CanStartExtraction,
-                room.TryStartExtraction, () => movement.IsDodging, Encounter.SupportsManualSkill));
+                room.TryStartExtraction, IsWeaponActionBusy, Encounter.SupportsManualSkill));
         }
 
         private bool CanControlRoom(Room room) => room && room == ActiveRoom && !returning && !lifecycle.IsGameplayBlocked

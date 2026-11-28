@@ -103,16 +103,16 @@ namespace ProjectWeapon.ZoneOneGreybox
             return new ManualSkillExecutor(run, equipment, skill, isDodging, _ => null, PlayerId);
         }
 
+        public bool IsWeaponActionBusy => run.Phase == RunPhase.Exploring
+            && activeFlurry is { IsFinished: false };
+
         public static bool SupportsManualSkill(ManualSkillPattern pattern) => pattern is OldSwordWideSlashPattern;
 
         private IReadOnlyList<TargetCandidate> ReadManualTargets()
         {
             Vector2 origin = player.position;
-            Vector2 rangedPosition = ranged.transform.position;
-            enemies[0] = new TargetCandidate(MeleeId, Point(meleeBody.position),
-                melee.Brain.CurrentHealth > 0, HasClearPath(origin, meleeBody.position));
-            enemies[1] = new TargetCandidate(RangedId, Point(rangedPosition),
-                ranged.Brain.CurrentHealth > 0, HasClearPath(origin, rangedPosition));
+            enemies[0] = ReadMeleeTarget(origin);
+            enemies[1] = ReadRangedTarget(origin);
             return enemies;
         }
 

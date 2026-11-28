@@ -29,3 +29,5 @@ unity test . --mode PlayMode --filter ProjectWeapon.CombatHud.Tests.CombatAction
 앱 중단 때에는 조작부를 숨기고 조이스틱과 진행 중 조준을 정리한다. 복귀가 검증되면 같은 방과 출격에서 표시한다. 귀환·사망·시간 초과·정산 영수증 복구로 탐험이 종료되면 HUD를 제거한다. 기존 씬의 단일 EventSystem과 로비 Canvas가 계속 입력을 맡는다.
 
 테스트 `SortieLoopTests.ActualCombatHudCastsTheStarterLoanAndReturnsThroughThePortal`와 `ActualWeaponButtonsSwitchTheFieldDefinitionAndItsSkillAvailability`는 실제 로비 버튼을 Input System 터치로 누르고, 같은 씬에서 장착 실물·원형 변경과 적 체력, 일시중단, 귀환 및 정산을 확인한다.
+
+연속 기본 공격의 다음 타격이 남아 있을 때는 장착 교체와 새 스킬 발동을 막는다. 폐성 실제 방에서 단검의 첫 타격 이후 다른 슬롯을 눌러 교체가 일어나지 않는지, 후속 타격 뒤 새 입력으로는 교체되는지 재현한다. [KAN-138](https://gametithe.atlassian.net/browse/KAN-138) · [KAN-190](https://gametithe.atlassian.net/browse/KAN-190)
