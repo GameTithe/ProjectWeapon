@@ -19,10 +19,12 @@ namespace ProjectWeapon.Save
         [SerializeField] private CatalogSaveRecord[] catalog;
         [SerializeField] private SettlementSaveRecord[] settlements;
         [SerializeField] private CoinWeaponDrawSaveRecord[]? coinWeaponDraws;
+        [SerializeField] private CatalogMilestoneSaveRecord[]? catalogMilestones;
 
         public SaveSnapshot(long revision, long confirmedCoins, IEnumerable<WeaponInstance> weapons,
             IEnumerable<CatalogSaveRecord> catalog, IEnumerable<SettlementSaveRecord> settlements,
-            IEnumerable<CoinWeaponDrawSaveRecord>? coinWeaponDraws = null)
+            IEnumerable<CoinWeaponDrawSaveRecord>? coinWeaponDraws = null,
+            IEnumerable<CatalogMilestoneSaveRecord>? catalogMilestones = null)
         {
             this.revision = revision;
             this.confirmedCoins = confirmedCoins;
@@ -30,6 +32,7 @@ namespace ProjectWeapon.Save
             this.catalog = (catalog ?? throw new ArgumentNullException(nameof(catalog))).ToArray();
             this.settlements = (settlements ?? throw new ArgumentNullException(nameof(settlements))).ToArray();
             this.coinWeaponDraws = coinWeaponDraws?.ToArray();
+            this.catalogMilestones = catalogMilestones?.ToArray();
             Validate();
         }
 
@@ -40,6 +43,18 @@ namespace ProjectWeapon.Save
         public IReadOnlyList<SettlementSaveRecord> Settlements => Array.AsReadOnly(settlements);
         public IReadOnlyList<CoinWeaponDrawSaveRecord> CoinWeaponDraws =>
             Array.AsReadOnly(coinWeaponDraws ?? Array.Empty<CoinWeaponDrawSaveRecord>());
+
+        public IReadOnlyList<CatalogMilestoneSaveRecord> CatalogMilestones =>
+            Array.AsReadOnly(catalogMilestones ?? Array.Empty<CatalogMilestoneSaveRecord>());
+
+        /// <summary>Advances the revision and retains all unchanged saved transaction collections.</summary>
+        public SaveSnapshot Next(long confirmedCoins, IEnumerable<WeaponInstance>? weapons = null,
+            IEnumerable<CatalogSaveRecord>? catalog = null, IEnumerable<SettlementSaveRecord>? settlements = null,
+            IEnumerable<CoinWeaponDrawSaveRecord>? coinWeaponDraws = null,
+            IEnumerable<CatalogMilestoneSaveRecord>? catalogMilestones = null) =>
+            new SaveSnapshot(checked(revision + 1), confirmedCoins, weapons ?? this.weapons, catalog ?? this.catalog,
+                settlements ?? this.settlements, coinWeaponDraws ?? this.coinWeaponDraws,
+                catalogMilestones ?? this.catalogMilestones);
 
         public bool TryGetCoinWeaponDraw(Guid requestId, out CoinWeaponDrawSaveRecord? record)
         {
@@ -100,6 +115,14 @@ namespace ProjectWeapon.Save
                 if (record == null || !record.IsValid ||
                     !runIds.Add(record.RunId) || !transactionIds.Add(record.TransactionId))
                     throw new InvalidDataException("A settlement record is invalid or duplicates a run or transaction ID.");
+            }
+
+            var milestoneThresholds = new HashSet<int>();
+            foreach (CatalogMilestoneSaveRecord milestone in catalogMilestones ?? Array.Empty<CatalogMilestoneSaveRecord>())
+            {
+                if (milestone == null || !milestone.IsValid || !milestoneThresholds.Add(milestone.RecoveredThreshold)
+                    || !runIds.Contains(milestone.SourceRunId))
+                    throw new InvalidDataException("A catalog milestone receipt is invalid or duplicates a threshold.");
             }
 
             var drawRequestIds = new HashSet<Guid>();

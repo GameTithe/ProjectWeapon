@@ -4,6 +4,8 @@
   "references": [
     "ProjectWeapon.Settlement",
     "ProjectWeapon.Catalog",
+    "ProjectWeapon.CoinWeaponDraw",
+    "ProjectWeapon.WeaponDraw",
     "ProjectWeapon.FailedSettlement",
     "ProjectWeapon.SuccessfulSettlement",
     "ProjectWeapon.Inventory",
