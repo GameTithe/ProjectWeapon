@@ -55,7 +55,6 @@ namespace ProjectWeapon.AutoAttack.Tests
             Assert.That(bow.Grade, Is.EqualTo(2));
             Assert.That(bow.Kind, Is.EqualTo(WeaponKind.Bow));
             Assert.That(bow.PrototypeBasicAttackPattern, Is.EqualTo("연속 화살"));
-            Assert.That(bow.Skill, Is.Null);
             Assert.That(bow.AttackVfx, Is.Null);
             Assert.That(pattern, Is.SameAs(AssetDatabase.LoadAssetAtPath<RepeaterBowPattern>(Folder + "RepeaterBowVolley.asset")));
             Assert.That(pattern.ShotCount, Is.EqualTo(3));

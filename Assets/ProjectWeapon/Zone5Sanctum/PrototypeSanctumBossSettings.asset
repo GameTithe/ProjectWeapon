@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9eaefb570b09c00488019de211a204b3, type: 3}
+  m_Name: PrototypeSanctumBossSettings
+  m_EditorClassIdentifier: ProjectWeapon.Zone5Sanctum::ProjectWeapon.Zone5Sanctum.SanctumBossSettings
+  maxHealth: 300
+  damage: 42
+  innerRadius: 1.35
+  outerRadius: 3.1
+  detectionRange: 5.2
+  windupMilliseconds: 1050
+  recoveryMilliseconds: 1900

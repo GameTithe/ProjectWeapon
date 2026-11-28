@@ -1,0 +1,17 @@
+{
+    "name": "ProjectWeapon.AccountSync.Tests",
+    "rootNamespace": "ProjectWeapon.AccountSync.Tests",
+    "references": [
+        "ProjectWeapon.AccountSync",
+        "ProjectWeapon.Accounts",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}
