@@ -5,3 +5,11 @@
 첫 구역은 처음부터 열린다. 보스 없이 성공 귀환한 경우와 실패, 마지막 구역, 이미 처리된 낮은 구역은 해금 변경 없이 종료된다. KAN-173은 `ZoneProgression.IsUnlocked(zoneId)`와 `HighestUnlockedZoneId`를 읽는다. 권장 무기 등급은 해금 입력에 포함되지 않는다. [KAN-173](https://gametithe.atlassian.net/browse/KAN-173)
 
 저장 담당자는 이전에 확정한 최고 구역 ID를 생성자에 넘겨 읽기 모델을 복원할 수 있다. 현재 저장 스키마와 정산 영수증에는 구역·보스 증거 및 최고 해금 값이 없으므로, 재실행 간 자동 보존은 이후 저장 통합에서 연결해야 한다. 이 작업의 테스트는 실제 카탈로그, 보스 사망 이벤트, 성공·실패 정산 저장, 구형 영수증과 경계를 재현한다.
+
+## 재현
+
+```powershell
+unity test . --mode EditMode --filter ProjectWeapon.ZoneProgression.Tests.ZoneProgressionTests --output "$env:TEMP/KAN-86-zone-progression.xml"
+```
+
+성공한 정산과 같은 탐험의 보스 처치 증거를 넣으면 다음 구역 하나를 연다. 보스 없이 귀환하거나 정산 실패, 만료 또는 최종 구역이면 현재 해금을 유지한다. 이 재현은 임시 정산 저장소와 구역 카탈로그를 사용한다. 실제 출격 씬에서의 연결과 앱 재실행 뒤 해금 복원은 아직 연결되지 않았다.
