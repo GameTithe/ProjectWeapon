@@ -1,0 +1,10 @@
+{
+  "name": "ProjectWeapon.PullMotion.PlayMode.Tests",
+  "rootNamespace": "ProjectWeapon.Combat.Tests",
+  "references": [
+    "ProjectWeapon.Combat.Physics2D"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
