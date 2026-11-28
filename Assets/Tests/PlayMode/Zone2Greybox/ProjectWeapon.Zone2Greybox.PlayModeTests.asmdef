@@ -1,0 +1,13 @@
+{
+    "name": "ProjectWeapon.Zone2Greybox.PlayModeTests",
+    "rootNamespace": "ProjectWeapon.Zone2Greybox.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Run",
+        "Unity.InputSystem"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
