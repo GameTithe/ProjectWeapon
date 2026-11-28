@@ -16,7 +16,8 @@ namespace ProjectWeapon.Player
             RunId runId,
             int amount,
             TimeSpan effectiveAt,
-            List<RunSignal> frameSignals)
+            List<RunSignal> frameSignals,
+            PlayerDodge? dodge = null)
         {
             if (health == null)
                 throw new ArgumentNullException(nameof(health));
@@ -27,7 +28,8 @@ namespace ProjectWeapon.Player
 
             RunSession? session = run.CurrentRun;
             if (session == null || runId != session.Id || run.Result != null
-                || effectiveAt < session.StartedAt || effectiveAt >= session.Deadline)
+                || effectiveAt < session.StartedAt || effectiveAt >= session.Deadline
+                || (dodge?.IsInvulnerable(runId, effectiveAt) ?? false))
                 return false;
 
             ExtractionAttempt? attempt = run.ActiveExtraction;

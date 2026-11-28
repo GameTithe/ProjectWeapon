@@ -1,6 +1,8 @@
 #nullable enable
 
 using System;
+using System.Security.Cryptography;
+using System.Text;
 using UnityEngine;
 
 namespace ProjectWeapon.Inventory
@@ -18,6 +20,15 @@ namespace ProjectWeapon.Inventory
         public bool IsValid => TryRead(value, out _);
 
         public static WeaponInstanceId New() => new WeaponInstanceId(Guid.NewGuid());
+
+        internal static WeaponInstanceId ForStarterLoan(Guid runId)
+        {
+            // Stable across reloads while a saved loan is present, in its own instance-ID namespace.
+            byte[] key = Encoding.UTF8.GetBytes("ProjectWeapon/StarterLoan/" + runId.ToString("D"));
+            using SHA256 sha = SHA256.Create();
+            byte[] digest = sha.ComputeHash(key);
+            return new WeaponInstanceId(new Guid(digest.AsSpan(0, 16)));
+        }
 
         public static bool TryParse(string? value, out WeaponInstanceId id)
         {

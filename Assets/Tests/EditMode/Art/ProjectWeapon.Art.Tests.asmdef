@@ -1,0 +1,7 @@
+{
+    "name": "ProjectWeapon.Art.Tests",
+    "rootNamespace": "ProjectWeapon.Art.Tests",
+    "references": ["ProjectWeapon.WandererArt"],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

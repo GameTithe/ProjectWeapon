@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using ProjectWeapon.Weapons;
 
 namespace ProjectWeapon.Inventory
 {
@@ -19,9 +20,12 @@ namespace ProjectWeapon.Inventory
     /// <summary>Owns the current position of each weapon instance.</summary>
     public sealed class InventoryService
     {
+        private static readonly WeaponDefinitionId StarterLoanDefinition = new WeaponDefinitionId("old_sword");
         private readonly object sync = new object();
+        private readonly HashSet<WeaponInstanceId> issuedStarterLoans = new HashSet<WeaponInstanceId>();
         private readonly Dictionary<WeaponInstanceId, WeaponInstance> instances;
         private long carryRevision;
+        private bool startingSortie;
 
         public InventoryService(IReadOnlyList<WeaponInstance> initialInstances)
             : this(initialInstances, InventorySlotCapacity.Prototype)
@@ -57,6 +61,72 @@ namespace ProjectWeapon.Inventory
 
         public InventorySlotCapacity Capacity { get; }
 
+        /// <summary>Issues the approved fallback for a prepared sortie, at most once per run on this inventory.</summary>
+        public StarterLoanResult PrepareStarterLoan(Guid runId)
+        {
+            if (runId == Guid.Empty)
+                return new StarterLoanResult(StarterLoanStatus.InvalidRun);
+
+            WeaponInstanceId loanId = WeaponInstanceId.ForStarterLoan(runId);
+            lock (sync)
+            {
+                if (startingSortie)
+                    return new StarterLoanResult(StarterLoanStatus.InventoryNotPrepared);
+
+                if (instances.TryGetValue(loanId, out WeaponInstance existing))
+                {
+                    if (!existing.IsLoaned || !existing.DefinitionId.Equals(StarterLoanDefinition))
+                        return new StarterLoanResult(StarterLoanStatus.InstanceIdConflict);
+
+                    issuedStarterLoans.Add(loanId);
+                    return new StarterLoanResult(StarterLoanStatus.AlreadyIssued, existing);
+                }
+
+                if (issuedStarterLoans.Contains(loanId))
+                    return new StarterLoanResult(StarterLoanStatus.AlreadyIssued);
+
+                bool hasOwnedWeapon = false;
+                foreach (WeaponInstance instance in instances.Values)
+                {
+                    WeaponLocationKind location = instance.Location.Kind;
+                    if (location == WeaponLocationKind.Carried || (location == WeaponLocationKind.Equipped && instance.IsLoaned))
+                        return new StarterLoanResult(StarterLoanStatus.InventoryNotPrepared);
+
+                    if (location == WeaponLocationKind.Equipped
+                        || (!instance.IsLoaned && instance.Location.ReservedRunId == runId))
+                        hasOwnedWeapon = true;
+                }
+
+                if (hasOwnedWeapon)
+                    return new StarterLoanResult(StarterLoanStatus.OwnedWeaponEquipped);
+                if (Capacity.EquippedSlots == 0)
+                    return new StarterLoanResult(StarterLoanStatus.NoEquipmentSlot);
+
+                WeaponInstance loan = WeaponInstance.Rehydrate(loanId, StarterLoanDefinition,
+                    WeaponProvenance.Loan, WeaponLocation.Equipped(0));
+                instances.Add(loanId, loan);
+                issuedStarterLoans.Add(loanId);
+                return new StarterLoanResult(StarterLoanStatus.Issued, loan);
+            }
+        }
+
+        /// <summary>Rejects non-owned loans before applying any sale-specific rules.</summary>
+        public InventorySaleProvenance CheckSaleProvenance(WeaponInstanceId id)
+        {
+            if (!id.IsValid)
+                return InventorySaleProvenance.InvalidInstance;
+
+            lock (sync)
+            {
+                if (!instances.TryGetValue(id, out WeaponInstance instance))
+                    return InventorySaleProvenance.MissingInstance;
+
+                return instance.IsLoaned
+                    ? InventorySaleProvenance.ProvenanceRestricted
+                    : InventorySaleProvenance.RequiresSaleRules;
+            }
+        }
+
         /// <summary>Replaces the location only if the expected source still matches.</summary>
         public InventoryMoveResult Move(WeaponInstanceId id, WeaponLocation expectedSource, WeaponLocation destination)
         {
@@ -65,6 +135,9 @@ namespace ProjectWeapon.Inventory
 
             lock (sync)
             {
+                if (startingSortie)
+                    return InventoryMoveResult.InvalidRequest;
+
                 if (!instances.TryGetValue(id, out WeaponInstance instance))
                     return InventoryMoveResult.MissingInstance;
 
@@ -96,6 +169,9 @@ namespace ProjectWeapon.Inventory
 
             lock (sync)
             {
+                if (startingSortie)
+                    return new InventoryPickupResult(InventoryPickupStatus.InvalidRequest);
+
                 if (instances.ContainsKey(loot.Id))
                     return new InventoryPickupResult(InventoryPickupStatus.DuplicateInstance);
 
@@ -134,6 +210,9 @@ namespace ProjectWeapon.Inventory
 
             lock (sync)
             {
+                if (startingSortie)
+                    return new InventoryPickupResult(InventoryPickupStatus.InvalidRequest);
+
                 if (choice.Resolved || choice.CarryRevision != carryRevision)
                     return new InventoryPickupResult(InventoryPickupStatus.StaleChoice);
 
@@ -168,6 +247,83 @@ namespace ProjectWeapon.Inventory
                 instances.Values.CopyTo(snapshot, 0);
                 return snapshot;
             }
+        }
+
+        /// <summary>Reserves a town loadout only after the synchronous run start accepts it.</summary>
+        public SortieStartResult TryStartSortie(Guid runId, Func<bool> tryStartRun)
+        {
+            if (runId == Guid.Empty || tryStartRun == null)
+                return new SortieStartResult(SortieStartStatus.InvalidRequest);
+
+            lock (sync)
+            {
+                if (startingSortie)
+                    return new SortieStartResult(SortieStartStatus.InventoryAlreadyReserved);
+
+                var equipped = new List<WeaponInstance>();
+                bool hasCarried = false;
+                foreach (WeaponInstance instance in instances.Values)
+                {
+                    switch (instance.Location.Kind)
+                    {
+                        case WeaponLocationKind.RunReserved:
+                            return new SortieStartResult(SortieStartStatus.InventoryAlreadyReserved);
+                        case WeaponLocationKind.Carried:
+                            hasCarried = true;
+                            break;
+                        case WeaponLocationKind.Equipped:
+                            equipped.Add(instance);
+                            break;
+                    }
+                }
+
+                if (hasCarried || !IsValidSortieLoadout(runId, equipped))
+                    return new SortieStartResult(SortieStartStatus.LoadoutNotReady);
+
+                equipped.Sort((first, second) =>
+                    first.Location.SlotIndex.GetValueOrDefault().CompareTo(second.Location.SlotIndex.GetValueOrDefault()));
+                var manifest = new SortieManifest(runId, equipped.ToArray());
+                WeaponLocation reservedForRun = WeaponLocation.RunReserved(runId);
+                var reservations = new WeaponInstance[equipped.Count];
+                for (int index = 0; index < reservations.Length; index++)
+                    reservations[index] = AtLocation(equipped[index], reservedForRun);
+
+                startingSortie = true;
+                try
+                {
+                    if (!tryStartRun())
+                        return new SortieStartResult(SortieStartStatus.RunRejected);
+
+                    foreach (WeaponInstance reserved in reservations)
+                        instances[reserved.Id] = reserved;
+
+                    return new SortieStartResult(SortieStartStatus.Started, manifest);
+                }
+                finally
+                {
+                    startingSortie = false;
+                }
+            }
+        }
+
+        private static bool IsValidSortieLoadout(Guid runId, List<WeaponInstance> equipped)
+        {
+            if (equipped.Count == 0)
+                return false;
+
+            foreach (WeaponInstance instance in equipped)
+            {
+                int slot = instance.Location.SlotIndex.GetValueOrDefault();
+                if (slot >= InventorySlotCapacity.Prototype.EquippedSlots)
+                    return false;
+
+                if (instance.IsLoaned && (equipped.Count != 1 || slot != 0
+                    || !instance.DefinitionId.Equals(StarterLoanDefinition)
+                    || instance.Id != WeaponInstanceId.ForStarterLoan(runId)))
+                    return false;
+            }
+
+            return true;
         }
 
         private bool IsOccupied(WeaponLocation destination)
