@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using ProjectWeapon.Weapons;
 
 namespace ProjectWeapon.Inventory
 {
@@ -19,7 +20,9 @@ namespace ProjectWeapon.Inventory
     /// <summary>Owns the current position of each weapon instance.</summary>
     public sealed class InventoryService
     {
+        private static readonly WeaponDefinitionId StarterLoanDefinition = new WeaponDefinitionId("old_sword");
         private readonly object sync = new object();
+        private readonly HashSet<WeaponInstanceId> issuedStarterLoans = new HashSet<WeaponInstanceId>();
         private readonly Dictionary<WeaponInstanceId, WeaponInstance> instances;
         private long carryRevision;
         private bool startingSortie;
@@ -57,6 +60,69 @@ namespace ProjectWeapon.Inventory
         }
 
         public InventorySlotCapacity Capacity { get; }
+
+        /// <summary>Issues the approved fallback for a prepared sortie, at most once per run on this inventory.</summary>
+        public StarterLoanResult PrepareStarterLoan(Guid runId)
+        {
+            if (runId == Guid.Empty)
+                return new StarterLoanResult(StarterLoanStatus.InvalidRun);
+
+            WeaponInstanceId loanId = WeaponInstanceId.ForStarterLoan(runId);
+            lock (sync)
+            {
+                if (instances.TryGetValue(loanId, out WeaponInstance existing))
+                {
+                    if (!existing.IsLoaned || !existing.DefinitionId.Equals(StarterLoanDefinition))
+                        return new StarterLoanResult(StarterLoanStatus.InstanceIdConflict);
+
+                    issuedStarterLoans.Add(loanId);
+                    return new StarterLoanResult(StarterLoanStatus.AlreadyIssued, existing);
+                }
+
+                if (issuedStarterLoans.Contains(loanId))
+                    return new StarterLoanResult(StarterLoanStatus.AlreadyIssued);
+
+                bool hasOwnedWeapon = false;
+                foreach (WeaponInstance instance in instances.Values)
+                {
+                    WeaponLocationKind location = instance.Location.Kind;
+                    if (location == WeaponLocationKind.Carried || (location == WeaponLocationKind.Equipped && instance.IsLoaned))
+                        return new StarterLoanResult(StarterLoanStatus.InventoryNotPrepared);
+
+                    if (location == WeaponLocationKind.Equipped
+                        || (!instance.IsLoaned && instance.Location.ReservedRunId == runId))
+                        hasOwnedWeapon = true;
+                }
+
+                if (hasOwnedWeapon)
+                    return new StarterLoanResult(StarterLoanStatus.OwnedWeaponEquipped);
+                if (Capacity.EquippedSlots == 0)
+                    return new StarterLoanResult(StarterLoanStatus.NoEquipmentSlot);
+
+                WeaponInstance loan = WeaponInstance.Rehydrate(loanId, StarterLoanDefinition,
+                    WeaponProvenance.Loan, WeaponLocation.Equipped(0));
+                instances.Add(loanId, loan);
+                issuedStarterLoans.Add(loanId);
+                return new StarterLoanResult(StarterLoanStatus.Issued, loan);
+            }
+        }
+
+        /// <summary>Rejects non-owned loans before applying any sale-specific rules.</summary>
+        public InventorySaleProvenance CheckSaleProvenance(WeaponInstanceId id)
+        {
+            if (!id.IsValid)
+                return InventorySaleProvenance.InvalidInstance;
+
+            lock (sync)
+            {
+                if (!instances.TryGetValue(id, out WeaponInstance instance))
+                    return InventorySaleProvenance.MissingInstance;
+
+                return instance.IsLoaned
+                    ? InventorySaleProvenance.ProvenanceRestricted
+                    : InventorySaleProvenance.RequiresSaleRules;
+            }
+        }
 
         /// <summary>Replaces the location only if the expected source still matches.</summary>
         public InventoryMoveResult Move(WeaponInstanceId id, WeaponLocation expectedSource, WeaponLocation destination)
