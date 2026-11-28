@@ -12,6 +12,7 @@
         "ProjectWeapon.Save",
         "ProjectWeapon.Settlement",
         "ProjectWeapon.SortieLoop",
+        "ProjectWeapon.WeaponSale",
         "ProjectWeapon.Weapons",
         "ProjectWeapon.ZoneOneGreybox",
         "Unity.InputSystem",
