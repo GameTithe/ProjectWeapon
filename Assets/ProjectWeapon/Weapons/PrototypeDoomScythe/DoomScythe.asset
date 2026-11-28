@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 967cedc84ea446948ba8bcd46a4bb458, type: 3}
+  m_Name: DoomScythe
+  m_EditorClassIdentifier: ProjectWeapon.Weapons::ProjectWeapon.Weapons.WeaponDefinition
+  definitionId: doom_scythe
+  displayName: "\uC885\uB9D0\uC758 \uB0AB"
+  grade: 5
+  kind: 7
+  prototypeBasicAttackPattern: "\uC5F0\uC18D \uAD11\uC5ED+\uADF8\uB9BC\uC790 \uD3ED\uBC1C"
+  prototypeSkillPattern:
+  basicAttack: {fileID: 11400000, guid: 16a7eafdf3e9d544fa3c7579b4860f83, type: 2}
+  skill: {fileID: 0}
+  attackVfx: {fileID: 0}
