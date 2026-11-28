@@ -9,6 +9,7 @@
         "ProjectWeapon.Inventory",
         "ProjectWeapon.Loot",
         "ProjectWeapon.Run",
+        "ProjectWeapon.RunRecovery",
         "ProjectWeapon.Save",
         "ProjectWeapon.Settlement",
         "ProjectWeapon.SortieLoop",
