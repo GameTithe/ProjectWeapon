@@ -9,6 +9,7 @@
         "ProjectWeapon.Enemies.Ranged",
         "ProjectWeapon.Inventory",
         "ProjectWeapon.Loot",
+        "ProjectWeapon.MaceSkill",
         "ProjectWeapon.ManualSkill",
         "ProjectWeapon.Movement",
         "ProjectWeapon.OldSwordSkill",
