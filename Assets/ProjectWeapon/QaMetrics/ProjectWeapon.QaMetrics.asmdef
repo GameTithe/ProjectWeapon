@@ -1,0 +1,11 @@
+{
+    "name": "ProjectWeapon.QaMetrics",
+    "rootNamespace": "ProjectWeapon.QaMetrics",
+    "references": [
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement",
+        "ProjectWeapon.Weapons"
+    ]
+}
