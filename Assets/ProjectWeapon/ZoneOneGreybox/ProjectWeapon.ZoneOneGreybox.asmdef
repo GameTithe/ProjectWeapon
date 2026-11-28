@@ -4,6 +4,7 @@
     "references": [
         "ProjectWeapon.AutoAttack",
         "ProjectWeapon.Chest",
+        "ProjectWeapon.Enemies.Boss",
         "ProjectWeapon.Enemies.Melee",
         "ProjectWeapon.Enemies.Ranged",
         "ProjectWeapon.Inventory",

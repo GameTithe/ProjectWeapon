@@ -2542,6 +2542,7 @@ MonoBehaviour:
   meleeSettings: {fileID: 11400000, guid: 6fdb2f13bc1f4d7999c7eb2c4caedd2b, type: 2}
   ranged: {fileID: 246330141}
   rangedSettings: {fileID: 11400000, guid: 7fd6d53b063c4eedbc9df51e1d421d77, type: 2}
+  boss: {fileID: 1969114105}
   chest: {fileID: 493511137}
   pickup: {fileID: 1911516551}
   walls: {fileID: 79308554}
@@ -2715,6 +2716,74 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1634308752}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &1969114104
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 6052040279737406192, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6052040279737406192, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 6.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6052040279737406192, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6052040279737406192, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6052040279737406192, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6052040279737406192, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6052040279737406192, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6052040279737406192, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6052040279737406192, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6052040279737406192, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7860816315148166190, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+      propertyPath: m_Name
+      value: AbandonedCastleBoss
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+--- !u!114 &1969114105 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1481439446466299640, guid: 59d9c97c850a66b4e8966aa28794b0c6, type: 3}
+  m_PrefabInstance: {fileID: 1969114104}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35b3ce6df03fd6b4ea43542ec7e71551, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: ProjectWeapon.Enemies.Boss::ProjectWeapon.Enemies.Boss.BossShockwaveActor
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -2728,3 +2797,4 @@ SceneRoots:
   - {fileID: 1141446050}
   - {fileID: 246330143}
   - {fileID: 493511136}
+  - {fileID: 1969114104}
