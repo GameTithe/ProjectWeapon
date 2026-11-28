@@ -1,0 +1,30 @@
+{
+    "name": "ProjectWeapon.SortieLoop",
+    "rootNamespace": "ProjectWeapon.SortieLoop",
+    "references": [
+        "ProjectWeapon.CatalogUI",
+        "ProjectWeapon.CombatHud",
+        "ProjectWeapon.CombatStatusUI",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.ExtractionUI",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.RunRecovery",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement",
+        "ProjectWeapon.SettlementUI",
+        "ProjectWeapon.SortieUI",
+        "ProjectWeapon.Wallet",
+        "ProjectWeapon.WarehouseUI",
+        "ProjectWeapon.WeaponSale",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons",
+        "ProjectWeapon.ZoneOneGreybox",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ]
+}

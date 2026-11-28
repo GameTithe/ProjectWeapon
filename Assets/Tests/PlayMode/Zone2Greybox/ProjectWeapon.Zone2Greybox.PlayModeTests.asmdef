@@ -1,0 +1,21 @@
+{
+    "name": "ProjectWeapon.Zone2Greybox.PlayModeTests",
+    "rootNamespace": "ProjectWeapon.Zone2Greybox.Tests",
+    "references": [
+        "ProjectWeapon.Chest",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Enemies.Ranged",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Loot",
+        "ProjectWeapon.Weapons",
+        "ProjectWeapon.Zone2Prison",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.PrisonGuard",
+        "ProjectWeapon.Run",
+        "Unity.InputSystem"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
