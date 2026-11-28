@@ -13,7 +13,9 @@ using ProjectWeapon.Run;
 using ProjectWeapon.Save;
 using ProjectWeapon.Wallet;
 using ProjectWeapon.WeaponDraw;
+using ProjectWeapon.WeaponSale;
 using ProjectWeapon.Weapons;
+using UnityEditor;
 using UnityEngine;
 
 namespace ProjectWeapon.Settlement.Tests
@@ -170,6 +172,37 @@ namespace ProjectWeapon.Settlement.Tests
             Assert.That(reopened.CatalogMilestones.Single().SourceRunId, Is.EqualTo(paid.Settlements.Single().RunId));
             Assert.That(reopened.CatalogMilestones.Single().TransactionId, Is.EqualTo("CatalogMilestone:5"));
             Assert.That(reopened.CoinWeaponDraws.Single().RequestId, Is.EqualTo(purchase));
+        }
+
+        [Test]
+        public void SellingARecoveredDuplicateKeepsTheMilestoneAndPaidBalance()
+        {
+            var store = new AtomicSnapshotStore(path);
+            Seed(store, 4, firstUnpaid: 5);
+            WeaponInstance sold = Loot("wooden_spear");
+            TestSortie reaching = Start(store, sold, Loot("wooden_spear"));
+            Assert.That(reaching.Settle(store).Status, Is.EqualTo(RunSettlementStatus.Committed));
+            SaveSnapshot paid = store.Load()!;
+            var catalog = AssetDatabase.LoadAssetAtPath<WeaponCatalog>(
+                "Assets/ProjectWeapon/Weapons/PrototypeStarter/PrototypeStarterWeaponCatalog.asset");
+            var prices = AssetDatabase.LoadAssetAtPath<WeaponSalePrices>(
+                "Assets/ProjectWeapon/WeaponSale/PrototypeWeaponSalePrices.asset");
+            var sale = new WeaponSaleService(store, new RunState(() => TimeSpan.Zero), catalog, prices);
+            Guid request = Guid.NewGuid();
+
+            Assert.That(sale.TrySell(request, sold.Id).Status, Is.EqualTo(WeaponSaleStatus.Sold));
+            SaveSnapshot reopened = new AtomicSnapshotStore(path).Load()!;
+            Assert.That(reopened.ConfirmedCoins, Is.EqualTo(paid.ConfirmedCoins + 30));
+            Assert.That(reopened.CatalogMilestones.Single().SourceRunId, Is.EqualTo(paid.Settlements.Single().RunId));
+            Assert.That(reopened.WeaponSales.Single().RequestId, Is.EqualTo(request));
+
+            TestSortie later = Start(store, Loot("wooden_spear"));
+            Assert.That(later.Settle(store).Status, Is.EqualTo(RunSettlementStatus.Committed));
+            Assert.That(sale.TrySell(request, sold.Id).Status, Is.EqualTo(WeaponSaleStatus.AlreadySold));
+            SaveSnapshot final = store.Load()!;
+            Assert.That(final.CatalogMilestones, Has.Count.EqualTo(1));
+            Assert.That(final.WeaponSales, Has.Count.EqualTo(1));
+            Assert.That(final.ConfirmedCoins, Is.EqualTo(reopened.ConfirmedCoins + 3));
         }
 
         private void WriteLegacyProfileWithoutMilestones(int recovered)
