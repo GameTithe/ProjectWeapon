@@ -1,0 +1,10 @@
+{
+    "name": "ProjectWeapon.FortressBoss.PlayMode.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Zone4Fortress",
+        "Unity.InputSystem"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
