@@ -1,0 +1,16 @@
+{
+    "name": "ProjectWeapon.OneRoomDemo.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.OneRoomDemo.Tests",
+    "references": [
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Loot",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.OneRoomDemo",
+        "ProjectWeapon.Weapons",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

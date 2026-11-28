@@ -1,0 +1,20 @@
+{
+    "name": "ProjectWeapon.ZoneOneGreybox",
+    "rootNamespace": "ProjectWeapon.ZoneOneGreybox",
+    "references": [
+        "ProjectWeapon.AutoAttack",
+        "ProjectWeapon.Chest",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Enemies.Ranged",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Loot",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Weapons",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Run",
+        "Unity.InputSystem"
+    ]
+}

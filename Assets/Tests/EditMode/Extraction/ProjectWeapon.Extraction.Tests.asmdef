@@ -2,8 +2,10 @@
     "name": "ProjectWeapon.Extraction.Tests",
     "rootNamespace": "ProjectWeapon.Extraction.Tests",
     "references": [
+        "ProjectWeapon.AutoAttack",
         "ProjectWeapon.Combat",
         "ProjectWeapon.Extraction",
+        "ProjectWeapon.Player",
         "ProjectWeapon.Run"
     ],
     "includePlatforms": [

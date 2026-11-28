@@ -14,3 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: ProjectWeapon.Movement::ProjectWeapon.Movement.MovementSettings
   speed: 4
   touchDeadzone: 0.15
+  dodgeDistance: 2
+  dodgeDurationMilliseconds: 200
+  dodgeInvulnerabilityMilliseconds: 120
+  dodgeCooldownMilliseconds: 1250
