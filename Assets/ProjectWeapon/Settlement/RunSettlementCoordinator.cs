@@ -55,6 +55,10 @@ namespace ProjectWeapon.Settlement
 
         public RunSettlementCommit TrySettle(RunResult run, SortieManifest manifest,
             IReadOnlyList<WeaponInstance> heldAtEnd, RunCoinAccumulator wallet)
+            => TrySettle(run, manifest, heldAtEnd, wallet, mastery: null);
+
+        public RunSettlementCommit TrySettle(RunResult run, SortieManifest manifest,
+            IReadOnlyList<WeaponInstance> heldAtEnd, RunCoinAccumulator wallet, IRunMasteryObjective? mastery)
         {
             if (run == null)
                 throw new ArgumentNullException(nameof(run));
@@ -74,7 +78,7 @@ namespace ProjectWeapon.Settlement
                 return existing;
 
             RunCoinSettlementProposal coins = wallet.ProposeSettlement(new WalletBalance(current.ConfirmedCoins), run);
-            SaveSnapshot candidate = BuildCandidate(current, run, manifest, heldAtEnd.ToArray(), coins);
+            SaveSnapshot candidate = BuildCandidate(current, run, manifest, heldAtEnd.ToArray(), coins, mastery);
             SnapshotCommitResult write = commit(current.Revision, candidate);
             if (write.Status == SnapshotCommitStatus.Committed)
                 return new RunSettlementCommit(RunSettlementStatus.Committed, candidate, candidate.Settlements.Last());
@@ -85,7 +89,7 @@ namespace ProjectWeapon.Settlement
         }
 
         private static SaveSnapshot BuildCandidate(SaveSnapshot current, RunResult run, SortieManifest manifest,
-            IReadOnlyList<WeaponInstance> heldAtEnd, RunCoinSettlementProposal coins)
+            IReadOnlyList<WeaponInstance> heldAtEnd, RunCoinSettlementProposal coins, IRunMasteryObjective? mastery)
         {
             IReadOnlyList<WeaponInstance> nextWeapons;
             IReadOnlyList<CatalogSaveRecord> nextCatalog;
@@ -96,6 +100,12 @@ namespace ProjectWeapon.Settlement
                 SuccessfulSortieResult recovered = SuccessfulSortieSettlement.Calculate(run, manifest, heldAtEnd, coins);
                 nextWeapons = ApplySuccessfulRecovery(current, manifest, recovered);
                 var catalog = new CatalogProgress(current.Catalog);
+                if (mastery != null)
+                {
+                    foreach (var definition in mastery.GetVerifiedMasteries(run, recovered.RecoveredWeapons))
+                        catalog.RecordVerifiedMastery(definition);
+                }
+
                 var catalogRecoveries = new List<string>();
                 foreach (WeaponInstance weapon in heldAtEnd)
                 {
