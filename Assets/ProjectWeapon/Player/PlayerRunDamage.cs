@@ -37,7 +37,7 @@ namespace ProjectWeapon.Player
                 return false;
 
             if (attempt != null && effectiveAt >= attempt.StartedAt)
-                frameSignals.Add(RunSignal.CancelExtraction(runId, attempt.Id, effectiveAt));
+                frameSignals.Add(RunSignal.CancelExtraction(runId, attempt.Id, effectiveAt, ExtractionCancelReason.Damage));
 
             if (damage.IsFatal)
                 frameSignals.Add(RunSignal.PlayerDied(runId, effectiveAt));
