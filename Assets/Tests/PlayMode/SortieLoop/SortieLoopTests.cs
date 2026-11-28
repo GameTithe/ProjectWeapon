@@ -815,6 +815,44 @@ namespace ProjectWeapon.SortieLoop.Tests
         }
 
         [UnityTest]
+        public IEnumerator CombatStatusInActualRoomFollowsDamageTimeAndEquipment()
+        {
+            yield return EnterWithTouch(chooseTwo: true);
+            Room room = host.ActiveRoom!;
+            Transform status = host.ActiveHud!.SafeAreaRoot.Find("Combat Status/CombatHUD");
+            TMP_Text health = status.Find("Health/HealthValue").GetComponent<TMP_Text>();
+            TMP_Text clockText = status.Find("Countdown/CountdownValue").GetComponent<TMP_Text>();
+            var first = status.Find("EquipmentSlot1/ActiveMarker").GetComponent<Image>();
+            var second = status.Find("EquipmentSlot2/ActiveMarker").GetComponent<Image>();
+            Assert.That(health.text, Is.EqualTo("HP 100 / 100"));
+            Assert.That(clockText.text, Is.EqualTo("08:00"));
+            Assert.That(status.Find("EquipmentSlot1/SlotValue").GetComponent<TMP_Text>().text, Does.Contain("낡은 검"));
+            Assert.That(status.Find("EquipmentSlot2/SlotValue").GetComponent<TMP_Text>().text, Does.Contain("나무 창"));
+            Assert.That(first.enabled, Is.True);
+            Assert.That(second.enabled, Is.False);
+
+            room.Player.position = (Vector2)room.Encounter.Ranged.transform.position + Vector2.left * 3f;
+            Physics2D.SyncTransforms();
+            SetElapsed(TimeSpan.FromSeconds(2));
+            yield return WaitUntilOrFail(() => clockText.text == "07:58", "The status clock did not sample the active run.");
+            yield return WaitUntilOrFail(() => room.Encounter.Ranged.Brain.ActiveAttack.HasValue,
+                "The ranged enemy did not start its visible attack.");
+            SetElapsed(room.Encounter.Ranged.Brain.ActiveAttack!.Value.HitsAt);
+            yield return WaitUntilOrFail(() => health.text == "HP 94 / 100", "The ranged hit did not update the status HUD.");
+            Assert.That(room.Encounter.PlayerHealth, Is.EqualTo(94));
+            yield return Tap(5, ButtonNamed("Weapon Slot 2"));
+            Assert.That(first.enabled, Is.False);
+            Assert.That(second.enabled, Is.True);
+
+            TimeSpan deadline = room.Run.CurrentRun!.Deadline;
+            SetElapsed(deadline - TimeSpan.FromMilliseconds(100));
+            yield return WaitUntilOrFail(() => clockText.text == "00:01", "The last partial second was rounded down.");
+            SetElapsed(deadline);
+            yield return WaitUntilOrFail(() => host.ActiveHud == null, "The HUD survived the timed-out run.");
+            Assert.That(room.Run.Result!.Remaining, Is.EqualTo(TimeSpan.Zero));
+        }
+
+        [UnityTest]
         public IEnumerator ActualDaggerFollowUpBlocksSlotChangeUntilItsSecondHit()
         {
             WeaponInstance dagger = PersonalWeapon("dagger");
