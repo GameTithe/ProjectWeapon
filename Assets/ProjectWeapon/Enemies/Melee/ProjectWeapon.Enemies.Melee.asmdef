@@ -1,0 +1,5 @@
+{
+    "name": "ProjectWeapon.Enemies.Melee",
+    "rootNamespace": "ProjectWeapon.Enemies",
+    "references": ["ProjectWeapon.Combat"]
+}
