@@ -1,0 +1,9 @@
+{
+    "name": "ProjectWeapon.ForestBoss",
+    "rootNamespace": "ProjectWeapon.ForestBoss",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Run"
+    ]
+}

@@ -2,7 +2,8 @@
   "name": "ProjectWeapon.Dungeon",
   "rootNamespace": "ProjectWeapon.Dungeon",
   "references": [
-    "ProjectWeapon.Extraction",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Inventory",
     "ProjectWeapon.Run"
   ]
 }
