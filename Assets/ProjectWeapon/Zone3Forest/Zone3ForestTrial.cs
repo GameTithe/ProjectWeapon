@@ -7,6 +7,7 @@ using ProjectWeapon.Combat;
 using ProjectWeapon.Dungeon;
 using ProjectWeapon.Enemies;
 using ProjectWeapon.Extraction;
+using ProjectWeapon.ForestBoss;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Loot;
 using ProjectWeapon.Movement;
@@ -45,11 +46,12 @@ namespace ProjectWeapon.Zone3Forest
         [SerializeField] private RangedEnemySettings sentrySettings = null!;
         [SerializeField] private LineRenderer guardWarning = null!;
         [SerializeField] private LineRenderer sentryWarning = null!;
+        [SerializeField] private ForestBossActor boss = null!;
 
         private readonly InventoryService bag = new InventoryService(Array.Empty<WeaponInstance>());
         private readonly PlayerHealth health = new PlayerHealth(100);
         private readonly List<RaycastHit2D> wallHits = new List<RaycastHit2D>();
-        private readonly TargetCandidate[] enemies = new TargetCandidate[2];
+        private readonly TargetCandidate[] enemies = new TargetCandidate[3];
         private readonly List<(DamageRequest Hit, TimeSpan At)> incoming = new List<(DamageRequest, TimeSpan)>();
         private readonly List<RunSignal> signals = new List<RunSignal>();
         private RunState run = null!;
@@ -66,6 +68,9 @@ namespace ProjectWeapon.Zone3Forest
         public RunState Run => run;
         public MeleeEnemyActor Guard => guard;
         public RangedEnemyActor Sentry => sentry;
+        public ForestBossActor Boss => boss;
+        public ForestBossDefeat? BossDefeat { get; private set; }
+        public event Action<ForestBossDefeat>? BossDefeated;
         public FixedLootChest Chest => chest;
         public int PlayerHealth => health.CurrentHealth;
         public IReadOnlyList<WeaponInstance> Carried => bag.Snapshot();
@@ -96,6 +101,8 @@ namespace ProjectWeapon.Zone3Forest
 
             guard.Initialize(GuardId, guardSettings);
             sentry.Initialize(SentryId, sentrySettings);
+            boss.Bind(run, PlayerId, playerBody, health, walls);
+            boss.Defeated += PublishBossDefeat;
             guard.Brain.AttackResolved += (attack, hits) => RecordHits(hits, attack.HitsAt);
             sentry.Brain.AttackResolved += (attack, hits) => RecordHits(hits, attack.HitsAt);
             guard.Brain.Died += _ =>
@@ -112,6 +119,22 @@ namespace ProjectWeapon.Zone3Forest
                 if (drop && result.Status == InventoryPickupStatus.PickedUp)
                     drop!.gameObject.SetActive(false);
             };
+        }
+
+        private void OnDestroy()
+        {
+            if (boss)
+                boss.Defeated -= PublishBossDefeat;
+        }
+
+        private void PublishBossDefeat(ForestBossDefeat result)
+        {
+            if (BossDefeat.HasValue || result.RunId != runId || result.ZoneId != ZoneId
+                || result.BossId != ForestBossActor.BossId)
+                return;
+
+            BossDefeat = result;
+            BossDefeated?.Invoke(result);
         }
 
         private void Update()
@@ -181,6 +204,8 @@ namespace ProjectWeapon.Zone3Forest
                 guard.Advance(now, new TargetCandidate(PlayerId, Point(player), alive, guardSeesPlayer));
             if (now < run.CurrentRun.Deadline || sentry.Brain.ActiveAttack.HasValue)
                 sentry.Advance(now, new TargetCandidate(PlayerId, Point(player), alive, HasClearPath(sentry.transform.position, player)));
+            if (boss.Advance(now) is { } roots)
+                RecordHits(roots.Hits, roots.Attack.HitsAt);
 
             incoming.Sort((left, right) => left.At.CompareTo(right.At));
             foreach ((DamageRequest hit, TimeSpan at) in incoming)
@@ -195,6 +220,9 @@ namespace ProjectWeapon.Zone3Forest
                 HasClearPath(player, guardPosition));
             enemies[1] = new TargetCandidate(SentryId, Point(sentryPosition), sentry.Brain.CurrentHealth > 0,
                 HasClearPath(player, sentryPosition));
+            Vector2 bossPosition = boss.transform.position;
+            enemies[2] = new TargetCandidate(ForestBossActor.BossId, Point(bossPosition), boss.CurrentHealth > 0,
+                HasClearPath(player, bossPosition));
             attacks.TryAttack(now, Point(player), validationSword, enemies);
         }
 
@@ -210,6 +238,8 @@ namespace ProjectWeapon.Zone3Forest
                     guard.ApplyDamage(hit, attack.StartedAt);
                 else if (StringComparer.Ordinal.Equals(hit.TargetId, SentryId))
                     sentry.ApplyDamage(hit, attack.StartedAt);
+                else if (StringComparer.Ordinal.Equals(hit.TargetId, ForestBossActor.BossId))
+                    boss.ApplyDamage(hit, attack.StartedAt);
             }
             return true;
         }
