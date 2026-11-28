@@ -25,6 +25,8 @@ namespace ProjectWeapon.Run
         public RunPhase Phase { get; private set; } = RunPhase.Town;
         public RunSession? CurrentRun { get; private set; }
         public ExtractionAttempt? ActiveExtraction { get; private set; }
+        /// <summary>The accepted reason, visible until the next attempt or terminal run result.</summary>
+        public ExtractionCancellation? LastExtractionCancellation { get; private set; }
         public RunResult? Result { get; private set; }
 
         public event Action<RunResult>? RunResultFinalized;
@@ -59,6 +61,7 @@ namespace ProjectWeapon.Run
 
             var attempt = new ExtractionAttempt(checked(++lastAttemptId), now, now + ExtractionDuration);
             ActiveExtraction = attempt;
+            LastExtractionCancellation = null;
             Phase = RunPhase.Extracting;
             return attempt;
         }
@@ -134,6 +137,8 @@ namespace ProjectWeapon.Run
                     case RunSignalKind.PlayerDied when signal.EffectiveAt < session.Deadline:
                         return FinalizeResult(session, RunEndReason.Death, signal.EffectiveAt);
                     case RunSignalKind.ExtractionCancelled when MatchesActiveExtraction(signal):
+                        LastExtractionCancellation = new ExtractionCancellation(session.Id, signal.AttemptId,
+                            signal.CancelReason, signal.EffectiveAt);
                         ActiveExtraction = null;
                         Phase = RunPhase.Exploring;
                         break;
@@ -212,6 +217,7 @@ namespace ProjectWeapon.Run
         {
             var result = new RunResult(session, reason, effectiveAt);
             ActiveExtraction = null;
+            LastExtractionCancellation = null;
             Result = result;
             Phase = result.Succeeded ? RunPhase.Succeeded : RunPhase.Failed;
             RunResultFinalized?.Invoke(result);
