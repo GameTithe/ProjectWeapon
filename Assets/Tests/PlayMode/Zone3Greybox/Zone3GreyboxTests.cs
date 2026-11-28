@@ -3,11 +3,13 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using ProjectWeapon.Combat;
 using ProjectWeapon.Dungeon;
 using ProjectWeapon.Extraction;
+using ProjectWeapon.ForestBoss;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Loot;
 using ProjectWeapon.Movement;
@@ -128,6 +130,81 @@ namespace ProjectWeapon.Zone3Greybox.Tests
             Assert.That(trial.Chest.IsOpen, Is.False);
             Assert.That(trial.Guard.Brain.CurrentHealth, Is.EqualTo(24));
             Assert.That(trial.Sentry.Brain.CurrentHealth, Is.EqualTo(18));
+            Assert.That(trial.Boss.CurrentHealth, Is.EqualTo(205));
+            Assert.That(trial.BossDefeat, Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator ActualForestBossDealsDamageAndTheBasicSwordPublishesOneDefeat()
+        {
+            ForestBossActor boss = trial.Boss;
+            RunId runId = trial.Run.CurrentRun!.Id;
+            var bossPosition = new Vector2(13.5f, 8.5f);
+            var south = new Vector2(13.5f, 7.25f);
+            var north = new Vector2(13.5f, 9.5f);
+            Assert.That((Vector2)boss.transform.position, Is.EqualTo(bossPosition));
+            Assert.That(boss.GetComponent<Collider2D>(), Is.Null);
+            Assert.That(boss.CurrentHealth, Is.EqualTo(205));
+
+            var defeats = new List<ForestBossDefeat>();
+            trial.BossDefeated += defeats.Add;
+            player.position = south;
+            now = TimeSpan.FromMilliseconds(100);
+            yield return null;
+            Assert.That(boss.CurrentHealth, Is.EqualTo(195));
+            Assert.That(boss.ActiveAttack, Is.Not.Null);
+            ForestRootStrike first = boss.ActiveAttack!.Value;
+            Assert.That(first.Center.Y, Is.EqualTo(south.y));
+            Assert.That(boss.GetComponentInChildren<LineRenderer>().enabled, Is.True);
+            now = first.HitsAt;
+            yield return null;
+            Assert.That(trial.PlayerHealth, Is.EqualTo(66));
+
+            int avoided = 0;
+            for (int step = 0; step < 40 && boss.CurrentHealth > 0; step++)
+            {
+                if (boss.ActiveAttack is { } attack)
+                {
+                    player.position = attack.Center.Y < bossPosition.y ? north : south;
+                    now = attack.HitsAt;
+                    avoided++;
+                }
+                else
+                    now += TimeSpan.FromSeconds(1);
+                yield return null;
+                Assert.That(trial.PlayerHealth, Is.EqualTo(66));
+            }
+
+            Assert.That(avoided, Is.GreaterThan(0));
+            Assert.That(boss.CurrentHealth, Is.Zero);
+            ForestBossDefeat defeat = defeats.Single();
+            Assert.That(defeat.RunId, Is.EqualTo(runId));
+            Assert.That(defeat.ZoneId, Is.EqualTo(ZoneId));
+            Assert.That(defeat.BossId, Is.EqualTo(ForestBossActor.BossId));
+            Assert.That(defeat.DefeatedAt, Is.EqualTo(now));
+            Assert.That(trial.BossDefeat, Is.EqualTo(defeat));
+            Assert.That(trial.Carried, Is.Empty);
+
+            now += TimeSpan.FromSeconds(3);
+            yield return null;
+            Assert.That(defeats, Has.Count.EqualTo(1));
+            Assert.That(boss.GetComponentInChildren<LineRenderer>().enabled, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator ActualForestBossLateFrameUsesTheScheduledHitBeforeTheRoomTimesOut()
+        {
+            player.position = new Vector2(12.5f, 7.5f);
+            now = TimeSpan.FromMilliseconds(718900);
+            yield return null;
+            Assert.That(trial.Boss.ActiveAttack?.HitsAt, Is.EqualTo(TimeSpan.FromMilliseconds(719900)));
+            Assert.That(trial.PlayerHealth, Is.EqualTo(100));
+
+            now = TimeSpan.FromSeconds(720);
+            yield return null;
+            Assert.That(trial.PlayerHealth, Is.EqualTo(66));
+            Assert.That(trial.Run.Result?.Reason, Is.EqualTo(RunEndReason.TimeExpired));
+            Assert.That(trial.Boss.ActiveAttack, Is.Null);
         }
 
         [Test]
