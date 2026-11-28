@@ -1,0 +1,18 @@
+{
+    "name": "ProjectWeapon.PrisonGuard.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.PrisonGuard.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.PrisonGuard",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Zone2Prison",
+        "Unity.InputSystem"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

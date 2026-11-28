@@ -1,0 +1,9 @@
+{
+    "name": "ProjectWeapon.PrisonGuard",
+    "rootNamespace": "ProjectWeapon.PrisonGuard",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Run"
+    ]
+}
