@@ -9,8 +9,11 @@ using ProjectWeapon.Dungeon;
 using ProjectWeapon.Enemies;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Loot;
+using ProjectWeapon.ManualSkill;
+using ProjectWeapon.OldSwordSkill;
 using ProjectWeapon.Player;
 using ProjectWeapon.Run;
+using ProjectWeapon.WeaponSwitch;
 using ProjectWeapon.Weapons;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -88,6 +91,34 @@ namespace ProjectWeapon.ZoneOneGreybox
             melee.Brain.Died += _ => meleeVisual.color = Color.gray;
             ranged.Brain.Died += _ => rangedVisual.color = Color.gray;
             attacks = new AutoAttackScheduler(run, TrySwing, initiallyEnabled: true, isDodging);
+        }
+
+        /// <summary>Shares the equipped selection and live encounter targets with the room's manual input.</summary>
+        public ManualSkillExecutor BindPlayerEquipment(EquippedWeaponSelection equipment, Func<bool> isDodging)
+        {
+            weapon = equipment.ReadActiveWeapon()?.Definition;
+            equipment.ActiveSlotChanged += selected => weapon = selected.Definition;
+            var skill = new OldSwordWideSlashEffect(ReadManualTargets, ApplyManualSlash);
+            return new ManualSkillExecutor(run, equipment, skill, isDodging, _ => null, PlayerId);
+        }
+
+        public static bool SupportsManualSkill(ManualSkillPattern pattern) => pattern is OldSwordWideSlashPattern;
+
+        private IReadOnlyList<TargetCandidate> ReadManualTargets()
+        {
+            Vector2 origin = player.position;
+            Vector2 rangedPosition = ranged.transform.position;
+            enemies[0] = new TargetCandidate(MeleeId, Point(meleeBody.position),
+                melee.Brain.CurrentHealth > 0, HasClearPath(origin, meleeBody.position));
+            enemies[1] = new TargetCandidate(RangedId, Point(rangedPosition),
+                ranged.Brain.CurrentHealth > 0, HasClearPath(origin, rangedPosition));
+            return enemies;
+        }
+
+        private void ApplyManualSlash(OldSwordWideSlashStrike slash)
+        {
+            foreach (DamageRequest hit in slash.Hits)
+                HitEnemy(hit, slash.EffectiveAt);
         }
 
         public bool TryOpenChest()

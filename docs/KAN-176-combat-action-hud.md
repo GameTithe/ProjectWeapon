@@ -21,3 +21,11 @@ unity test . --mode PlayMode --filter ProjectWeapon.CombatHud.Tests.CombatAction
 ```
 
 실제 uGUI 레이캐스터 및 Input System 터치 두 개, 가상 조이스틱 프리팹과 Rigidbody2D, 무기 선택·수동 스킬·귀환 API를 독립 전투에 연결한다. 이동과 조준 동시 입력, 방향형과 자신형 전환, 취소와 쿨다운, 귀환진 범위와 이동 제한, 회피 입력 시점, 모서리 안전 영역과 UI 오버레이를 확인한다. 기기 DPI와 컷아웃의 실기기 확인은 KAN-39에 남긴다. [KAN-39](https://gametithe.atlassian.net/browse/KAN-39)
+
+## 폐성 씬에서 확인
+
+실제 `SortieLoop` 씬에서 출격 장비 확인 후 `ZoneOneGreybox`가 로드되면 기존 Canvas에 HUD가 나타난다. 장착 없이 출격하면 0번 슬롯의 대여 낡은 검으로 방향 스킬을 사용할 수 있다. 적 후보는 시전 순간의 실제 적 위치·체력과 폐성 벽 판정을 사용한다. 무기를 바꾸면 같은 선택이 자동 공격 원형과 HUD 스킬 가능 여부에 적용된다. 현재 폐성은 실제 낡은 검 효과를 지원한다. 다른 종류는 방에 해당 효과가 연결되면 버튼에서 사용할 수 있다.
+
+앱 중단 때에는 조작부를 숨기고 조이스틱과 진행 중 조준을 정리한다. 복귀가 검증되면 같은 방과 출격에서 표시한다. 귀환·사망·시간 초과·정산 영수증 복구로 탐험이 종료되면 HUD를 제거한다. 기존 씬의 단일 EventSystem과 로비 Canvas가 계속 입력을 맡는다.
+
+테스트 `SortieLoopTests.ActualCombatHudCastsTheStarterLoanAndReturnsThroughThePortal`와 `ActualWeaponButtonsSwitchTheFieldDefinitionAndItsSkillAvailability`는 실제 로비 버튼을 Input System 터치로 누르고, 같은 씬에서 장착 실물·원형 변경과 적 체력, 일시중단, 귀환 및 정산을 확인한다.

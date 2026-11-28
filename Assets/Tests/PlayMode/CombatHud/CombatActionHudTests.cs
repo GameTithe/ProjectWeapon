@@ -44,6 +44,7 @@ namespace ProjectWeapon.CombatHud.Tests
         private RunId runId;
         private ExtractionChannel channel = null!;
         private EquippedWeaponSelection equipment = null!;
+        private InventoryService field = null!;
         private WeaponInstance directional = null!;
         private WeaponInstance self = null!;
         private SkillDamageFixture effect = null!;
@@ -258,6 +259,11 @@ namespace ProjectWeapon.CombatHud.Tests
             yield return Touch(1, stick, TouchPhase.Ended);
             Assert.That(effect.Applied, Is.Empty);
 
+            Assert.That(field.Move(self.Id, WeaponLocation.Equipped(1), WeaponLocation.Carried(1)),
+                Is.EqualTo(InventoryMoveResult.Moved));
+            hud.Refresh();
+            Assert.That(Button("Weapon Slot 2").interactable, Is.False);
+
             now = TimeSpan.FromSeconds(10);
             hud.Refresh();
             Assert.That(Button("Skill").interactable, Is.False);
@@ -281,7 +287,7 @@ namespace ProjectWeapon.CombatHud.Tests
 
             directional = WeaponInstance.Create(directionDefinition.Id, WeaponProvenance.Personal, WeaponLocation.Equipped(0));
             self = WeaponInstance.Create(selfDefinition.Id, WeaponProvenance.Personal, WeaponLocation.Equipped(1));
-            var field = new InventoryService(new[] { directional, self });
+            field = new InventoryService(new[] { directional, self });
             run = new RunState(() => now);
             runId = RunId.New();
             Assert.That(run.TryStartRun(runId, 1, TimeSpan.FromSeconds(10)), Is.True);

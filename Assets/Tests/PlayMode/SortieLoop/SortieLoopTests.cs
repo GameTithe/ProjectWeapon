@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using ProjectWeapon.Combat;
+using ProjectWeapon.CombatHud;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Loot;
 using ProjectWeapon.Run;
@@ -26,6 +27,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using Room = ProjectWeapon.ZoneOneGreybox.ZoneOneGreybox;
+using TouchPhase = UnityEngine.InputSystem.TouchPhase;
 
 namespace ProjectWeapon.SortieLoop.Tests
 {
@@ -38,6 +40,7 @@ namespace ProjectWeapon.SortieLoop.Tests
         private Scene lobby;
         private SortieLoopHost host = null!;
         private Keyboard keyboard = null!;
+        private Touchscreen? touchscreen;
         private InputSettings.UpdateMode originalUpdateMode;
         private InputSettings.BackgroundBehavior originalBackgroundBehavior;
         private InputSettings.EditorInputBehaviorInPlayMode originalEditorInput;
@@ -109,6 +112,9 @@ namespace ProjectWeapon.SortieLoop.Tests
             {
                 if (keyboard != null && keyboard.added)
                     InputSystem.RemoveDevice(keyboard);
+                if (touchscreen != null && touchscreen.added)
+                    InputSystem.RemoveDevice(touchscreen);
+                touchscreen = null;
                 InputSystem.settings.updateMode = originalUpdateMode;
                 InputSystem.settings.backgroundBehavior = originalBackgroundBehavior;
                 InputSystem.settings.editorInputBehaviorInPlayMode = originalEditorInput;
@@ -694,6 +700,156 @@ namespace ProjectWeapon.SortieLoop.Tests
             AssertWarehouse(store.Load()!, sword);
             AssertWarehouse(store.Load()!, warehouseSpare);
         }
+
+        [UnityTest]
+        public IEnumerator ActualCombatHudCastsTheStarterLoanAndReturnsThroughThePortal()
+        {
+            Assert.That(host.ActiveHud, Is.Null);
+            yield return EnterWithTouch();
+
+            Room room = host.ActiveRoom!;
+            CombatActionHud hud = host.ActiveHud!;
+            Assert.That(hud, Is.Not.Null);
+            Assert.That(host.ActiveManifest!.Equipped.Single().IsLoaned, Is.True);
+            Assert.That(host.ActiveManifest.Equipped.Single().DefinitionId.Value, Is.EqualTo("old_sword"));
+            Button skillButton = ButtonNamed("Skill");
+            Assert.That(skillButton.interactable, Is.True);
+
+            Vector2 skill = Center(skillButton);
+            Vector2 release = skill + Vector2.right * 24f * hud.GetComponentInParent<Canvas>().scaleFactor;
+            room.Player.position = new Vector2(5.5f, 2.5f);
+            Rigidbody2D meleeBody = room.Encounter.Melee.GetComponent<Rigidbody2D>();
+            meleeBody.position = new Vector2(7.25f, 2.5f);
+            Physics2D.SyncTransforms();
+            float meleeBefore = room.Encounter.Melee.Brain.CurrentHealth;
+
+            yield return Touch(3, skill, TouchPhase.Began);
+            yield return Touch(3, release, TouchPhase.Moved);
+            yield return Touch(3, release, TouchPhase.Ended);
+            Assert.That(room.Encounter.Melee.Brain.CurrentHealth, Is.EqualTo(meleeBefore),
+                "The sword reached an enemy through a castle wall.");
+            Assert.That(skillButton.interactable, Is.False);
+
+            SetElapsed(TimeSpan.FromSeconds(5));
+            room.Player.position = new Vector2(9.6f, 6.4f);
+            Physics2D.SyncTransforms();
+            hud.Refresh();
+            float rangedBefore = room.Encounter.Ranged.Brain.CurrentHealth;
+            Assert.That(rangedBefore, Is.GreaterThan(0f));
+            Vector2 stick = ScreenCenter((RectTransform)hud.Joystick.transform);
+            float scale = hud.GetComponentInParent<Canvas>().scaleFactor;
+            yield return Touch(4, stick, TouchPhase.Began);
+            yield return Touch(4, stick + Vector2.up * 35f * scale, TouchPhase.Moved);
+            yield return Touch(5, skill, TouchPhase.Began);
+            yield return Touch(5, release, TouchPhase.Moved);
+            Assert.That(hud.IsAiming && hud.Joystick.IsHeld, Is.True);
+            Vector2 beforeMovement = room.Player.position;
+            yield return new WaitForFixedUpdate();
+            yield return null;
+            Assert.That(room.Player.position.y, Is.GreaterThan(beforeMovement.y));
+            Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.EqualTo(rangedBefore));
+            yield return Touch(5, release, TouchPhase.Ended);
+            Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.Zero);
+            Assert.That(hud.Joystick.IsHeld, Is.True);
+            yield return Touch(4, stick, TouchPhase.Ended);
+
+            RunLifecycleRelay relay = host.GetComponent<RunLifecycleRelay>();
+            hud.SendMessage("OnApplicationPause", true);
+            relay.SendMessage("OnApplicationPause", true);
+            Assert.That(hud.GetComponent<CanvasGroup>().alpha, Is.Zero);
+            Assert.That(hud.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
+            hud.SendMessage("OnApplicationPause", false);
+            relay.SendMessage("OnApplicationPause", false);
+            Assert.That(host.ActiveHud, Is.SameAs(hud));
+            Assert.That(hud.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+
+            SetElapsed(TimeSpan.FromSeconds(7));
+            room.Player.position = room.ExtractionCenter;
+            hud.Refresh();
+            yield return Tap(6, ButtonNamed("Extract"));
+            Assert.That(room.Phase, Is.EqualTo(RunPhase.Extracting));
+            SetElapsed(TimeSpan.FromSeconds(7.1));
+            yield return Touch(7, Center(ButtonNamed("Dodge")), TouchPhase.Began);
+            Assert.That(room.Phase, Is.EqualTo(RunPhase.Exploring));
+            Assert.That(room.Movement!.IsDodging, Is.True);
+            yield return Touch(7, Center(ButtonNamed("Dodge")), TouchPhase.Ended);
+            yield return WaitUntilOrFail(() => !room.Movement.IsDodging, "The real dodge did not finish.");
+
+            SetElapsed(TimeSpan.FromSeconds(9));
+            room.Player.position = room.ExtractionCenter;
+            hud.Refresh();
+            yield return Tap(8, ButtonNamed("Extract"));
+            RunId id = room.Run.CurrentRun!.Id;
+            SetElapsed(ActiveAttempt(room).CompletesAt);
+            yield return WaitUntilOrFail(() => store.Load()!.Settlements.Count == 1, "The touch return did not settle.");
+            Assert.That(host.ActiveHud, Is.Null);
+            ReadReceipt(store.Load()!, id, RunEndReason.Extracted);
+            yield return Tap(9, ButtonNamed("Return to Lobby"));
+            yield return WaitUntilOrFail(() => host.IsInLobby, "The result touch did not return to the lobby.");
+            Assert.That(host.ActiveHud, Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator ActualWeaponButtonsSwitchTheFieldDefinitionAndItsSkillAvailability()
+        {
+            yield return EnterWithTouch(chooseTwo: true);
+            Room room = host.ActiveRoom!;
+            Assert.That(host.ActiveManifest!.Equipped.Select(item => item.Id),
+                Is.EqualTo(new[] { sword.Id, warehouseSpare.Id }));
+            Assert.That(ButtonNamed("Skill").interactable, Is.True);
+
+            room.Player.position = new Vector2(9.65f, 6.4f);
+            Physics2D.SyncTransforms();
+            float before = room.Encounter.Ranged.Brain.CurrentHealth;
+            yield return null;
+            Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.EqualTo(before));
+            yield return Tap(5, ButtonNamed("Weapon Slot 2"));
+            Assert.That(ButtonNamed("Weapon Slot 2").interactable, Is.False);
+            Assert.That(ButtonNamed("Weapon Slot 1").interactable, Is.True);
+            Assert.That(ButtonNamed("Skill").interactable, Is.False);
+            Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.EqualTo(before - 10f));
+
+            yield return Tap(6, ButtonNamed("Weapon Slot 1"));
+            Assert.That(ButtonNamed("Weapon Slot 1").interactable, Is.False);
+            Assert.That(ButtonNamed("Skill").interactable, Is.True);
+        }
+
+        private IEnumerator EnterWithTouch(bool chooseTwo = false)
+        {
+            touchscreen = InputSystem.AddDevice<Touchscreen>();
+            yield return Tap(1, ButtonNamed("Open Equipment"));
+            if (chooseTwo)
+            {
+                yield return Tap(2, WarehouseSwordButton());
+                yield return Tap(3, VisibleButtons("WarehouseWeapon").Single());
+            }
+
+            sortieOrigin = clock;
+            yield return Tap(chooseTwo ? 4 : 2, ButtonNamed("Confirm"));
+            yield return WaitUntilOrFail(() => host.ActiveRoom != null && host.ActiveHud != null, "The combat HUD did not bind.");
+            yield return null;
+        }
+
+        private IEnumerator Tap(int id, Button button)
+        {
+            Assert.That(button.IsActive() && button.interactable, Is.True, button.name);
+            Canvas.ForceUpdateCanvases();
+            Vector2 point = Center(button);
+            yield return Touch(id, point, TouchPhase.Began);
+            yield return Touch(id, point, TouchPhase.Ended);
+        }
+
+        private IEnumerator Touch(int id, Vector2 point, TouchPhase phase)
+        {
+            InputSystem.QueueStateEvent(touchscreen!, new TouchState { touchId = id, position = point, phase = phase });
+            InputSystem.Update();
+            yield return null;
+        }
+
+        private static Vector2 Center(Button button) => ScreenCenter((RectTransform)button.transform);
+
+        private static Vector2 ScreenCenter(RectTransform rect)
+            => RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center));
 
         private IEnumerator StartSortie(bool chooseSword)
         {

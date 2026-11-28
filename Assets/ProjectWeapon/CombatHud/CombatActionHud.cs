@@ -30,6 +30,7 @@ namespace ProjectWeapon.CombatHud
         private Canvas canvas = null!;
         private Func<Rect> safeArea = null!;
         private RectTransform safeRoot = null!;
+        private CanvasGroup visibility = null!;
         private RectTransform aimArea = null!;
         private DirectionalSkillArrow arrow = null!;
         private DirectionalSkillDrag drag = null!;
@@ -88,6 +89,15 @@ namespace ProjectWeapon.CombatHud
             Refresh();
         }
 
+        /// <summary>Hides input during overlays without missing application resume notifications.</summary>
+        public void SetVisible(bool visible)
+        {
+            visibility.alpha = visible ? 1f : 0f;
+            visibility.interactable = visible;
+            visibility.blocksRaycasts = visible;
+            Refresh();
+        }
+
         /// <summary>Updates controls after a host changes overlays, recovery, or current room state.</summary>
         public void Refresh()
         {
@@ -99,7 +109,8 @@ namespace ProjectWeapon.CombatHud
             bool live = AcceptsInput(now);
             bool exploring = live && context.Run.Phase == RunPhase.Exploring;
             bool skillsReady = exploring && !context.Movement.IsDodging && !context.WeaponActionBusy()
-                && context.Equipment.TryGetReadyWeapon(CombatWeaponAction.Skill, now, out _);
+                && context.Equipment.TryGetReadyWeapon(CombatWeaponAction.Skill, now, out SelectedWeapon ready)
+                && ready.Definition.Skill is ManualSkillPattern pattern && context.SupportsSkill(pattern);
             ManualSkillAimKind aimKind = (context.Equipment.ReadActiveWeapon()?.Definition.Skill as ManualSkillPattern)
                 ?.AimKind ?? ManualSkillAimKind.Unspecified;
             bool direction = aimKind == ManualSkillAimKind.Direction;
@@ -120,6 +131,9 @@ namespace ProjectWeapon.CombatHud
             bool hasSecond = false;
             foreach (WeaponInstance weapon in context.FieldInventory.Snapshot())
             {
+                if (weapon.Location.Kind != WeaponLocationKind.Equipped)
+                    continue;
+
                 hasFirst |= weapon.Location.SlotIndex == 0;
                 hasSecond |= weapon.Location.SlotIndex == 1;
             }
@@ -166,7 +180,7 @@ namespace ProjectWeapon.CombatHud
             Refresh();
         }
 
-        private bool AcceptsInput(TimeSpan now) => isActiveAndEnabled && !paused && !lostFocus
+        private bool AcceptsInput(TimeSpan now) => isActiveAndEnabled && visibility.blocksRaycasts && !paused && !lostFocus
             && context!.Movement && context.InputAvailable()
             && context.Run.CurrentRun is { } session && session.Id == runId && context.Run.Result == null
             && now >= session.StartedAt && now < session.Deadline;
@@ -187,7 +201,7 @@ namespace ProjectWeapon.CombatHud
             TimeSpan now = ReadAvailableTime();
             return !context!.Movement.IsDodging && !context.WeaponActionBusy()
                 && context.Equipment.TryGetReadyWeapon(CombatWeaponAction.Skill, now, out SelectedWeapon weapon)
-                && weapon.Definition.Skill is ManualSkillPattern { AimKind: ManualSkillAimKind.Self }
+                && weapon.Definition.Skill is ManualSkillPattern { AimKind: ManualSkillAimKind.Self } pattern && context.SupportsSkill(pattern)
                 ? weapon.InstanceId : null;
         }
 
@@ -232,6 +246,7 @@ namespace ProjectWeapon.CombatHud
 
         private void Build(RectTransform root, VirtualJoystick joystickPrefab, TMP_FontAsset font)
         {
+            visibility = root.gameObject.AddComponent<CanvasGroup>();
             safeRoot = ChildRect(root, "Combat Safe Area");
             aimArea = ChildRect(safeRoot, "Right Aim Region");
             aimArea.anchorMin = new Vector2(.5f, 0f);

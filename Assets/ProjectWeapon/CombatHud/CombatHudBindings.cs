@@ -15,7 +15,7 @@ namespace ProjectWeapon.CombatHud
         public CombatHudBindings(RunState run, PlayerMovement movement, MovementSettings movementSettings,
             InventoryService fieldInventory, EquippedWeaponSelection equipment, ManualSkillExecutor skills,
             Func<TimeSpan> clock, Func<bool> inputAvailable, Func<bool> canExtract, Func<bool> tryExtract,
-            Func<bool>? weaponActionBusy = null)
+            Func<bool>? weaponActionBusy = null, Func<ManualSkillPattern, bool>? supportsSkill = null)
         {
             Run = run ?? throw new ArgumentNullException(nameof(run));
             Movement = movement ? movement : throw new ArgumentNullException(nameof(movement));
@@ -28,6 +28,7 @@ namespace ProjectWeapon.CombatHud
             CanExtract = canExtract ?? throw new ArgumentNullException(nameof(canExtract));
             TryExtract = tryExtract ?? throw new ArgumentNullException(nameof(tryExtract));
             WeaponActionBusy = weaponActionBusy ?? (() => false);
+            SupportsSkill = supportsSkill ?? (_ => true);
         }
 
         internal RunState Run { get; }
@@ -41,5 +42,6 @@ namespace ProjectWeapon.CombatHud
         internal Func<bool> CanExtract { get; }
         internal Func<bool> TryExtract { get; }
         internal Func<bool> WeaponActionBusy { get; }
+        internal Func<ManualSkillPattern, bool> SupportsSkill { get; }
     }
 }
