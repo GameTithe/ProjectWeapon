@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4703716383883123590
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 357734092463942369}
+  - component: {fileID: 8594337133201168531}
+  m_Layer: 0
+  m_Name: PrototypeSfx
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &357734092463942369
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4703716383883123590}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8594337133201168531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4703716383883123590}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b8045e8b38046ef45892207229edcffb, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: ProjectWeapon.PrototypeAudio::ProjectWeapon.PrototypeAudio.PrototypeSfxPlayer
+  weaponAttack: {fileID: 8300000, guid: f5bebb17552decd43a659a4eeb328eaf, type: 3}
+  enemyHit: {fileID: 8300000, guid: 4722fc93f867d244eb2c99d6651ca29d, type: 3}
+  playerHit: {fileID: 8300000, guid: 0e4741fbae3560d45af71b8f0e3097b5, type: 3}
+  dodge: {fileID: 8300000, guid: fb1ebb0698c3efb46be114fc0ac3f890, type: 3}
+  pickup: {fileID: 8300000, guid: 8b46e2a364e8b6e48810d9d9b52c0a23, type: 3}
+  extractionLoop: {fileID: 8300000, guid: a29198714cdb0814eaba6011294e9226, type: 3}
+  extractionSuccess: {fileID: 8300000, guid: 326525e52f0051549b6bd547af295ea7, type: 3}
+  volume: 0.8
