@@ -11,3 +11,5 @@
 ```powershell
 unity test . --mode EditMode --filter ProjectWeapon.WeaponSale.Tests --output "$env:TEMP/KAN-101-editmode.xml"
 ```
+
+후속 코인 뽑기와 탐험 정산은 판매 영수증을 새 저장본에 함께 전달한다. 판매 후 성공 귀환을 저장하고 재시도해도 이전 영수증과 판매된 실물의 부재를 유지한다.

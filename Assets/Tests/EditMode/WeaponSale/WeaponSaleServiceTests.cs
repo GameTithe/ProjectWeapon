@@ -11,6 +11,8 @@ using ProjectWeapon.CoinWeaponDraw;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Run;
 using ProjectWeapon.Save;
+using ProjectWeapon.Settlement;
+using ProjectWeapon.Wallet;
 using ProjectWeapon.WeaponDraw;
 using ProjectWeapon.Weapons;
 using UnityEditor;
@@ -270,6 +272,38 @@ namespace ProjectWeapon.WeaponSale.Tests
             Assert.That(final.ConfirmedCoins, Is.EqualTo(530));
             Assert.That(final.WeaponSales.Single().RequestId, Is.EqualTo(request));
             Assert.That(final.Weapons.Any(item => item.Id == offered.Id), Is.False);
+            Assert.That(Service().TrySell(request, offered.Id).Status, Is.EqualTo(WeaponSaleStatus.AlreadySold));
+        }
+
+        [Test]
+        public void ACommittedReturnPreservesTheSaleReceiptAndNeverRestoresTheSoldInstance()
+        {
+            WeaponInstance offered = Item(OldSword, Warehouse);
+            WeaponInstance retained = Item(OldSword, WeaponLocation.Equipped(0));
+            Seed(300, offered, retained);
+            Guid request = Guid.NewGuid();
+            Assert.That(Service().TrySell(request, offered.Id).Status, Is.EqualTo(WeaponSaleStatus.Sold));
+
+            var inTown = new InventoryService(store.Load()!.Weapons);
+            TimeSpan clock = TimeSpan.Zero;
+            var expedition = new RunState(() => clock);
+            RunId runId = RunId.New();
+            SortieStartResult start = inTown.TryStartSortie(runId.Value,
+                () => expedition.TryStartRun(runId, 1, TimeSpan.FromSeconds(15)));
+            Assert.That(start.Status, Is.EqualTo(SortieStartStatus.Started));
+            ExtractionAttempt attempt = expedition.TryBeginExtraction(runId, isInRange: true)!;
+            clock = attempt.CompletesAt;
+            RunResult end = expedition.ProcessSignals(new[] { RunSignal.CompleteExtraction(runId, attempt.Id, clock) })!;
+            var wallet = new RunCoinAccumulator(runId);
+            wallet.AddReward(7);
+
+            Assert.That(new RunSettlementCoordinator(store).TrySettle(end, start.Manifest!, new[] { retained }, wallet).Status,
+                Is.EqualTo(RunSettlementStatus.Committed));
+
+            SaveSnapshot final = store.Load()!;
+            Assert.That(final.ConfirmedCoins, Is.EqualTo(337));
+            Assert.That(final.WeaponSales.Single().RequestId, Is.EqualTo(request));
+            Assert.That(final.Weapons.Single().Id, Is.EqualTo(retained.Id));
             Assert.That(Service().TrySell(request, offered.Id).Status, Is.EqualTo(WeaponSaleStatus.AlreadySold));
         }
 
