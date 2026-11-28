@@ -63,16 +63,18 @@ namespace ProjectWeapon.RunRecovery
         private readonly ExtractionChannel extraction;
         private readonly AtomicSnapshotStore store;
         private readonly Func<WeaponDefinitionId, bool> definitionExists;
+        private readonly Func<SaveSnapshot, RunId, bool>? hasReservation;
         private bool unverifiedInterruption;
         private RunRecoveryResult? lastInterruption;
 
         public RunRecoveryCoordinator(RunState run, ExtractionChannel extraction, AtomicSnapshotStore store,
-            Func<WeaponDefinitionId, bool> definitionExists)
+            Func<WeaponDefinitionId, bool> definitionExists, Func<SaveSnapshot, RunId, bool>? hasReservation = null)
         {
             this.run = run ?? throw new ArgumentNullException(nameof(run));
             this.extraction = extraction ?? throw new ArgumentNullException(nameof(extraction));
             this.store = store ?? throw new ArgumentNullException(nameof(store));
             this.definitionExists = definitionExists ?? throw new ArgumentNullException(nameof(definitionExists));
+            this.hasReservation = hasReservation;
         }
 
         public RunId? ActiveRunId => run.CurrentRun?.Id;
@@ -130,6 +132,8 @@ namespace ProjectWeapon.RunRecovery
                     save, receipt);
             }
 
+            if (hasReservation?.Invoke(snapshot, requestedRun) == false)
+                return Capture(RunRecoveryStatus.RecoveryPending, save);
             if (run.Result != null)
                 return Capture(RunRecoveryStatus.Finalized, save);
             if (!hasVerifiedContinuity)

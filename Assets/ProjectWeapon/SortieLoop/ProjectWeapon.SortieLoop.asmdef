@@ -3,8 +3,10 @@
     "rootNamespace": "ProjectWeapon.SortieLoop",
     "references": [
         "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Extraction",
         "ProjectWeapon.Inventory",
         "ProjectWeapon.Run",
+        "ProjectWeapon.RunRecovery",
         "ProjectWeapon.Save",
         "ProjectWeapon.Settlement",
         "ProjectWeapon.SettlementUI",

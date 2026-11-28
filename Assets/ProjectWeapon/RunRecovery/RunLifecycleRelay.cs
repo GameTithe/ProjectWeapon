@@ -20,6 +20,7 @@ namespace ProjectWeapon.RunRecovery
         private bool reportedInterruption;
 
         private bool IsUnavailable => paused || unfocused || disconnected || quitting;
+        public bool IsAvailable => !IsUnavailable;
         public bool IsGameplayBlocked => IsUnavailable || coordinator?.IsGameplayBlocked == true;
         public event Action<RunRecoveryResult>? RecoveryChanged;
 
@@ -34,6 +35,14 @@ namespace ProjectWeapon.RunRecovery
             hasVerifiedClock = verifiedClock ?? throw new ArgumentNullException(nameof(verifiedClock));
             coordinator = recovery;
             UpdateAvailability();
+        }
+
+        public void ClearRun()
+        {
+            coordinator = null;
+            readConfirmedFrame = null;
+            hasVerifiedClock = null;
+            reportedInterruption = false;
         }
 
         public void SetConnectionAvailable(bool connected)
