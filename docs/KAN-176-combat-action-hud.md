@@ -12,6 +12,8 @@
 
 폐성 통합 시에는 기존 키보드 회피와 HUD 회피를 공유 `PlayerMovement.DodgeStarted`로 관측하고 해당 신호를 기존 프레임의 `ExtractionChannel.ObserveAcceptedDodge`와 함께 처리한다. 이를 통해 터치 회피의 귀환 취소와 기존 타격 우선순위를 유지할 수 있다. HUD 테스트도 이 계약을 사용한다. 실제 개별 무기 효과는 같은 수동 실행기의 별도 효과 모듈이다.
 
+폐성 방은 uGUI가 터치 입력을 전달한 뒤 방의 갱신에서 같은 프레임을 판정한다. `ZoneOneGreybox.Movement`로 실제 이동에 바인딩하고 `DrainAcceptedDodgeSignals()`는 승인된 회피의 원래 시각과 귀환 시도 ID를 담은 신호를 한 번 넘긴다. 방은 프레임 판정에서 이 메서드를 사용한다. 앱 중단이 앞서면 호스트의 복구 릴레이가 같은 메서드를 호출한다.
+
 ## 재현
 
 ```powershell

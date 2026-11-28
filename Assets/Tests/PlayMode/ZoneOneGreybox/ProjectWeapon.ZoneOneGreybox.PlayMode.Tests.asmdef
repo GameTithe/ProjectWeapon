@@ -9,6 +9,7 @@
         "ProjectWeapon.Enemies.Ranged",
         "ProjectWeapon.Inventory",
         "ProjectWeapon.Loot",
+        "ProjectWeapon.Movement",
         "ProjectWeapon.Weapons",
         "ProjectWeapon.Run",
         "Unity.InputSystem"
