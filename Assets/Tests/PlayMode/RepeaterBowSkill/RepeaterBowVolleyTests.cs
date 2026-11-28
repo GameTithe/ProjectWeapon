@@ -24,7 +24,9 @@ namespace ProjectWeapon.RepeaterBowSkill.Tests
     public sealed class RepeaterBowVolleyTests
     {
         private const string AssetPath = "Assets/ProjectWeapon/RepeaterBowSkill/RepeaterBowVolley.asset";
+        private const string WeaponFolder = "Assets/ProjectWeapon/Weapons/PrototypeRepeaterBow/";
         private const string Player = "repeater-player";
+        private static readonly WeaponDefinitionId RepeaterId = new WeaponDefinitionId("repeater_bow");
         private const int TargetLayer = 8;
         private const int WallLayer = 9;
         private static readonly ManualSkillAim Right = ManualSkillAim.Along(new WorldPoint2D(5, 0));
@@ -70,6 +72,25 @@ namespace ProjectWeapon.RepeaterBowSkill.Tests
             assets.Clear();
             impacts.Clear();
             targets.Clear();
+        }
+
+        [Test]
+        public void CanonicalGradeTwoBowAloneReferencesTheSkillAndPreservesItsBasicAttack()
+        {
+            WeaponDefinition definition = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(WeaponFolder + "RepeaterBow.asset");
+            WeaponCatalog catalog = LoadCanonicalCatalog();
+            Assert.That(catalog.CreateLookup()[RepeaterId], Is.SameAs(definition));
+            Assert.That(definition.Id, Is.EqualTo(RepeaterId));
+            Assert.That(definition.Grade, Is.EqualTo(2));
+            Assert.That(definition.Kind, Is.EqualTo(WeaponKind.Bow));
+            Assert.That(definition.PrototypeSkillPattern, Is.EqualTo("다중 화살"));
+            Assert.That(definition.Skill, Is.SameAs(pattern));
+            Assert.That(definition.BasicAttack,
+                Is.SameAs(AssetDatabase.LoadAssetAtPath<ScriptableObject>(WeaponFolder + "RepeaterBowVolley.asset")));
+            WeaponDefinition[] owners = AssetDatabase.FindAssets("t:WeaponDefinition")
+                .Select(guid => AssetDatabase.LoadAssetAtPath<WeaponDefinition>(AssetDatabase.GUIDToAssetPath(guid)))
+                .Where(candidate => candidate && candidate.Skill == pattern).ToArray();
+            Assert.That(owners, Is.EqualTo(new[] { definition }));
         }
 
         [Test]
@@ -262,7 +283,7 @@ namespace ProjectWeapon.RepeaterBowSkill.Tests
         [TestCase("repeater_bow", 1)]
         public void MisboundPatternOrInvalidAimProducesNoProjectilesOrCooldown(string id, int grade)
         {
-            Bind(id, grade);
+            BindMisconfigured(id, grade);
             Assert.That(executor.TryActivate(Guid.NewGuid(), primary.Id, Ms(100), default, ManualSkillAim.AtSelf()),
                 Is.EqualTo(ManualSkillActivationStatus.InvalidTarget));
             Assert.That(Cast(100, Guid.NewGuid()), Is.EqualTo(ManualSkillActivationStatus.EffectRejected));
@@ -270,7 +291,12 @@ namespace ProjectWeapon.RepeaterBowSkill.Tests
             Assert.That(locks.ReadyAt(CombatWeaponAction.Skill, primary.Id), Is.EqualTo(TimeSpan.Zero));
         }
 
-        private void Bind(string id = "repeater_bow", int grade = 2, int duration = 20000)
+        private static WeaponCatalog LoadCanonicalCatalog() =>
+            AssetDatabase.LoadAssetAtPath<WeaponCatalog>(WeaponFolder + "PrototypeRepeaterBowWeaponCatalog.asset");
+
+        private void Bind(int duration = 20000) => BindEquipment(LoadCanonicalCatalog(), RepeaterId, duration);
+
+        private void BindMisconfigured(string id, int grade)
         {
             WeaponDefinition definition = Temporary<WeaponDefinition>();
             var fields = new SerializedObject(definition);
@@ -287,8 +313,13 @@ namespace ProjectWeapon.RepeaterBowSkill.Tests
             definitions.arraySize = 1;
             definitions.GetArrayElementAtIndex(0).objectReferenceValue = definition;
             catalogFields.ApplyModifiedPropertiesWithoutUndo();
-            primary = WeaponInstance.Create(definition.Id, WeaponProvenance.Personal, WeaponLocation.Equipped(0));
-            secondary = WeaponInstance.Create(definition.Id, WeaponProvenance.Personal, WeaponLocation.Equipped(1));
+            BindEquipment(catalog, definition.Id, 20000);
+        }
+
+        private void BindEquipment(WeaponCatalog catalog, WeaponDefinitionId definitionId, int duration)
+        {
+            primary = WeaponInstance.Create(definitionId, WeaponProvenance.Personal, WeaponLocation.Equipped(0));
+            secondary = WeaponInstance.Create(definitionId, WeaponProvenance.Personal, WeaponLocation.Equipped(1));
 
             Assert.That(run.TryStartRun(runId, 1, Ms(duration)), Is.True);
             effect = new RepeaterBowVolleyEffect(run, physics, 1 << TargetLayer, 1 << WallLayer,

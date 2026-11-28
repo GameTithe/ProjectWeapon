@@ -18,7 +18,7 @@
 
 `ManualSkillExecutor`가 추적하는 조준 제스처로 한 번 발동한다. `RepeaterBowVolleyEffect`는 런과 `PhysicsScene2D`를 받아 `ProjectileLifecycle`로 각 발을 이동시킨다. 목표 레이어의 Collider를 실물 `TargetCandidate`로 조회하는 읽기 전용 함수와 별도의 지형 레이어를 전달한다. 이 함수에서 적대 대상 여부와 현재 공격 가능 여부를 반영한다. 현재 폐성의 벽 TilemapCollider2D와 플레이어·적 객체는 Default 레이어를 공유한다. 정식 연결에서는 지형이 아닌 고체 충돌체가 벽으로 오인되지 않도록 벽과 표적을 구분하는 충돌 레이어를 구성해야 한다. 같은 거리에서는 지형이 먼저 막는다. 자기 자신과 우호·무효 대상, 지형 레이어의 Trigger는 지나간다. 한 실물에 화살 다섯 발이 실제로 닿으면 총 피해는 40이다. 같은 화살에서 해당 실물의 여러 Collider가 발견돼도 같은 적용으로 한 번만 처리한다.
 
-호스트가 `Advance`에 현재 런 시각과 명중 목록을 제공한다. 효과가 계산된 접촉 시각 순서로 목록에 명중을 추가한다. 정식 호스트는 마감 확정 전에 이 목록을 수집하고 `ContactAt`을 기준으로 같은 프레임의 사망·종료 관측과 판정 순서를 맞춘다. 마감 프레임의 투사체는 선분 레이로 마지막 구간을 검사한다. 애니메이션이나 검증용 표시에는 `GetActiveArrows()`로 현재 위치와 속도를 읽을 수 있다. KAN-142가 연사궁의 기본 공격 및 무기 정의를 소유하며, 해당 에셋이 들어온 뒤 이 스킬 참조를 연결할 수 있다.
+호스트가 `Advance`에 현재 런 시각과 명중 목록을 제공한다. 효과가 계산된 접촉 시각 순서로 목록에 명중을 추가한다. 정식 호스트는 마감 확정 전에 이 목록을 수집하고 `ContactAt`을 기준으로 같은 프레임의 사망·종료 관측과 판정 순서를 맞춘다. 마감 프레임의 투사체는 선분 레이로 마지막 구간을 검사한다. 애니메이션이나 검증용 표시에는 `GetActiveArrows()`로 현재 위치와 속도를 읽을 수 있다. 이 스킬은 KAN-142의 실제 연사궁 원형 RepeaterBow.asset에 연결된다. 별도로 직렬화된 연속 화살 기본 공격 참조는 유지된다.
 
 ## 재현
 
@@ -28,7 +28,7 @@ Unity `6000.6.9f1`에서 다음 검증을 실행한다.
 unity test . --mode PlayMode --filter ProjectWeapon.RepeaterBowSkill.Tests --output "$env:TEMP/KAN-144-volley-targeted.xml" --timeout 180
 ```
 
-실제 로컬 2D Physics Scene과 직렬화된 스킬 에셋을 사용하는 PlayMode 사례가 탄착, 지형 우선순위, 한 발당 피해 적용 ID, 쿨다운과 런 경계를 검증한다.
+실제 연사궁 카탈로그에서 장착한 원형과 로컬 2D Physics Scene을 사용하는 PlayMode 사례가 탄착, 지형 우선순위, 한 발당 피해 적용 ID, 쿨다운과 런 경계를 검증한다.
 
 - [KAN-60 방향 조준](https://gametithe.atlassian.net/browse/KAN-60)
 - [KAN-72 투사체 생명주기](https://gametithe.atlassian.net/browse/KAN-72)
