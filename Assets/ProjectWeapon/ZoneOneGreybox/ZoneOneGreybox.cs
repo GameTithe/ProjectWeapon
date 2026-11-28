@@ -14,6 +14,8 @@ using UnityEngine.InputSystem;
 
 namespace ProjectWeapon.ZoneOneGreybox
 {
+    // The EventSystem submits touch actions before this room arbitrates the frame.
+    [DefaultExecutionOrder(100)]
     [DisallowMultipleComponent]
     public sealed class ZoneOneGreybox : MonoBehaviour
     {
@@ -30,6 +32,7 @@ namespace ProjectWeapon.ZoneOneGreybox
         private ExtractionAccess access = null!;
         private InputAction? interact;
         private readonly List<RunSignal> frameSignals = new List<RunSignal>();
+        private readonly List<RunSignal> acceptedDodgeSignals = new List<RunSignal>();
         private PlayerMovement? movement;
         private Func<TimeSpan> readTime = null!;
         private bool recoveryBlocked;
@@ -37,6 +40,7 @@ namespace ProjectWeapon.ZoneOneGreybox
 
         public ZoneDefinition Zone => catalog.GetZone(1);
         public Rigidbody2D Player => player;
+        public PlayerMovement? Movement => movement;
         public ZoneOneEncounter Encounter => encounter;
         public Vector2 ExtractionCenter => extractionMarker.transform.position;
         public float ExtractionRadius => extractionRadius;
@@ -74,9 +78,35 @@ namespace ProjectWeapon.ZoneOneGreybox
             access = new ExtractionAccess(run, Zone.ZoneId, new WorldPoint2D(center.x, center.y), extractionRadius);
             interact = InputSystem.actions?.FindAction("Player/Interact");
             movement = player.GetComponent<PlayerMovement>();
+            if (movement)
+                movement.DodgeStarted += ObserveDodge;
             if (encounter)
                 encounter.Initialize(run, player, movement?.Dodge, () => movement?.IsDodging == true,
                     readTime, field, activeWeapon);
+        }
+
+        private void OnDestroy()
+        {
+            if (movement)
+                movement.DodgeStarted -= ObserveDodge;
+        }
+
+        private void ObserveDodge(RunId id, TimeSpan effectiveAt)
+        {
+            if (!recoveryBlocked && isActiveAndEnabled
+                && countdown.Extraction.ObserveAcceptedDodge(id, effectiveAt) is { } cancel)
+                acceptedDodgeSignals.Add(cancel);
+        }
+
+        /// <summary>Consumes confirmed dodge cancellation for either the room frame or a lifecycle interruption.</summary>
+        public IReadOnlyList<RunSignal> DrainAcceptedDodgeSignals()
+        {
+            if (acceptedDodgeSignals.Count == 0)
+                return Array.Empty<RunSignal>();
+
+            RunSignal[] drained = acceptedDodgeSignals.ToArray();
+            acceptedDodgeSignals.Clear();
+            return drained;
         }
 
         public void StopMovement()
@@ -115,13 +145,12 @@ namespace ProjectWeapon.ZoneOneGreybox
             bool wantsChest = interact?.WasPressedThisFrame() == true
                 && access.TryStart(runId, PlayerPoint(), move) == null;
 
-            bool dodged = Keyboard.current?.spaceKey.wasPressedThisFrame == true
-                && movement?.TryDodge(run, now) == true;
+            if (Keyboard.current?.spaceKey.wasPressedThisFrame == true)
+                movement?.TryDodge(run, now);
             frameSignals.Clear();
             if (encounter)
                 frameSignals.AddRange(encounter.ObserveAttacks(now));
-            if (dodged && countdown.Extraction.ObserveAcceptedDodge(runId, now) is RunSignal dodgeCancel)
-                frameSignals.Add(dodgeCancel);
+            frameSignals.AddRange(DrainAcceptedDodgeSignals());
             if (countdown.Extraction.ObserveMovement(move, now) is RunSignal moveCancel)
                 frameSignals.Add(moveCancel);
             countdown.ProcessFrame(frameSignals);

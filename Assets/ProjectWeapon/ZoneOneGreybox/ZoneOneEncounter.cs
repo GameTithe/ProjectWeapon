@@ -9,8 +9,11 @@ using ProjectWeapon.Dungeon;
 using ProjectWeapon.Enemies;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Loot;
+using ProjectWeapon.ManualSkill;
+using ProjectWeapon.OldSwordSkill;
 using ProjectWeapon.Player;
 using ProjectWeapon.Run;
+using ProjectWeapon.WeaponSwitch;
 using ProjectWeapon.Weapons;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -47,6 +50,7 @@ namespace ProjectWeapon.ZoneOneGreybox
         private Rigidbody2D player = null!;
         private Rigidbody2D meleeBody = null!;
         private AutoAttackScheduler attacks = null!;
+        private DaggerFlurry? activeFlurry;
         private SpriteRenderer meleeVisual = null!;
         private SpriteRenderer rangedVisual = null!;
         private PlayerDodge? playerDodge;
@@ -90,6 +94,34 @@ namespace ProjectWeapon.ZoneOneGreybox
             attacks = new AutoAttackScheduler(run, TrySwing, initiallyEnabled: true, isDodging);
         }
 
+        /// <summary>Shares the equipped selection and live encounter targets with the room's manual input.</summary>
+        public ManualSkillExecutor BindPlayerEquipment(EquippedWeaponSelection equipment, Func<bool> isDodging)
+        {
+            weapon = equipment.ReadActiveWeapon()?.Definition;
+            equipment.ActiveSlotChanged += selected => weapon = selected.Definition;
+            var skill = new OldSwordWideSlashEffect(ReadManualTargets, ApplyManualSlash);
+            return new ManualSkillExecutor(run, equipment, skill, isDodging, _ => null, PlayerId);
+        }
+
+        public bool IsWeaponActionBusy => run.Phase == RunPhase.Exploring
+            && activeFlurry is { IsFinished: false };
+
+        public static bool SupportsManualSkill(ManualSkillPattern pattern) => pattern is OldSwordWideSlashPattern;
+
+        private IReadOnlyList<TargetCandidate> ReadManualTargets()
+        {
+            Vector2 origin = player.position;
+            enemies[0] = ReadMeleeTarget(origin);
+            enemies[1] = ReadRangedTarget(origin);
+            return enemies;
+        }
+
+        private void ApplyManualSlash(OldSwordWideSlashStrike slash)
+        {
+            foreach (DamageRequest hit in slash.Hits)
+                HitEnemy(hit, slash.EffectiveAt);
+        }
+
         public bool TryOpenChest()
         {
             Vector2 position = chest.transform.position;
@@ -106,6 +138,8 @@ namespace ProjectWeapon.ZoneOneGreybox
 
         internal IReadOnlyList<RunSignal> ObserveAttacks(TimeSpan now)
         {
+            if (run.Phase != RunPhase.Exploring)
+                activeFlurry = null;
             frameSignals.Clear();
             damageEvents.Clear();
             if (run.Result != null || run.CurrentRun is not { } current)
@@ -137,20 +171,60 @@ namespace ProjectWeapon.ZoneOneGreybox
 
         internal void AdvancePlayerAttack(TimeSpan now)
         {
-            if (!attacks.IsEffective)
+            Vector2 origin = player.position;
+            AdvanceDagger(now, origin);
+            if (!attacks.IsEffective || activeFlurry != null)
                 return;
 
-            Vector2 origin = player.position;
-            Vector2 rangedPosition = ranged.transform.position;
-            enemies[0] = new TargetCandidate(MeleeId, Point(meleeBody.position),
-                melee.Brain.CurrentHealth > 0, HasClearPath(origin, meleeBody.position));
-            enemies[1] = new TargetCandidate(RangedId, Point(rangedPosition),
-                ranged.Brain.CurrentHealth > 0, HasClearPath(origin, rangedPosition));
+            enemies[0] = ReadMeleeTarget(origin);
+            enemies[1] = ReadRangedTarget(origin);
             attacks.TryAttack(now, Point(origin), weapon, enemies);
+        }
+
+        private TargetCandidate ReadMeleeTarget(Vector2 origin)
+            => new TargetCandidate(MeleeId, Point(meleeBody.position), melee.Brain.CurrentHealth > 0,
+                HasClearPath(origin, meleeBody.position));
+
+        private TargetCandidate ReadRangedTarget(Vector2 origin)
+        {
+            Vector2 position = ranged.transform.position;
+            return new TargetCandidate(RangedId, Point(position), ranged.Brain.CurrentHealth > 0,
+                HasClearPath(origin, position));
+        }
+
+        private void AdvanceDagger(TimeSpan now, Vector2 origin)
+        {
+            if (activeFlurry is not { } flurry)
+                return;
+
+            while (flurry.NextHitAt is { } due)
+            {
+                TargetCandidate target = default;
+                if (now >= due)
+                    target = StringComparer.Ordinal.Equals(flurry.TargetId, MeleeId)
+                        ? ReadMeleeTarget(origin)
+                        : ReadRangedTarget(origin);
+
+                if (!flurry.TryResolveNext(run, now, Point(origin), target, out DaggerStrike strike))
+                    break;
+                if (strike.Hit is DamageRequest hit)
+                    HitEnemy(hit, strike.EffectiveAt);
+            }
+
+            if (flurry.IsFinished)
+                activeFlurry = null;
         }
 
         private bool TrySwing(BasicAttackRequest attack)
         {
+            if (attack.Pattern is DaggerFlurryPattern dagger)
+            {
+                if (!dagger.TryCreateFlurry(attack, PlayerId, out activeFlurry))
+                    return false;
+                AdvanceDagger(attack.StartedAt, new Vector2(attack.Origin.X, attack.Origin.Y));
+                return true;
+            }
+
             Guid id = Guid.NewGuid();
             if (attack.Pattern is SpearThrustPattern spear && spear.TryCreateThrust(attack, id, PlayerId, out SpearThrust thrust))
             {
