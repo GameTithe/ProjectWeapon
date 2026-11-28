@@ -4,6 +4,13 @@
     "references": [
         "ProjectWeapon.ZoneOneGreybox",
         "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Chest",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Enemies.Ranged",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Loot",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Weapons",
         "ProjectWeapon.Run",
         "Unity.InputSystem"
     ],
