@@ -9,6 +9,8 @@ namespace ProjectWeapon.Extraction
     /// <summary>Checks a configured extraction point against the current player's world position.</summary>
     public sealed class ExtractionAccess
     {
+        public const float MovementCancelThreshold = 0.20f;
+
         private readonly RunState run;
         private readonly int zoneId;
         private readonly WorldPoint2D center;
@@ -32,9 +34,18 @@ namespace ProjectWeapon.Extraction
         public bool CanStart(RunId runId, WorldPoint2D playerPosition)
             => run.CanBeginExtraction(runId, IsInRange(playerPosition));
 
+        public bool CanStart(RunId runId, WorldPoint2D playerPosition, float acceptedMoveMagnitude)
+            => !HasCancelMovement(acceptedMoveMagnitude) && CanStart(runId, playerPosition);
+
         /// <summary>Call once for a button press, with the player's current position.</summary>
         public ExtractionAttempt? TryStart(RunId runId, WorldPoint2D playerPosition)
             => run.TryBeginExtraction(runId, IsInRange(playerPosition));
+
+        public ExtractionAttempt? TryStart(RunId runId, WorldPoint2D playerPosition, float acceptedMoveMagnitude)
+            => HasCancelMovement(acceptedMoveMagnitude) ? null : TryStart(runId, playerPosition);
+
+        internal static bool HasCancelMovement(float acceptedMoveMagnitude)
+            => float.IsFinite(acceptedMoveMagnitude) && acceptedMoveMagnitude >= MovementCancelThreshold;
 
         private bool IsInRange(WorldPoint2D playerPosition)
             => run.CurrentRun?.ZoneId == zoneId && playerPosition.IsFinite

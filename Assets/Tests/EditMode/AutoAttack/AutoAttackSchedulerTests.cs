@@ -89,6 +89,25 @@ namespace ProjectWeapon.AutoAttack.Tests
         }
 
         [Test]
+        public void DodgeSuppressesAttackAndLetsCooldownElapse()
+        {
+            bool dodging = false;
+            scheduler = new AutoAttackScheduler(run, Execute, initiallyEnabled: true, isDodgeActive: () => dodging);
+            Assert.That(Tick(0), Is.True);
+
+            dodging = true;
+            Assert.That(scheduler.IsEnabled, Is.True);
+            Assert.That(scheduler.IsEffective, Is.False);
+            Assert.That(Tick(500), Is.False);
+            Assert.That(Tick(550), Is.False);
+
+            dodging = false;
+            Assert.That(scheduler.IsEffective, Is.True);
+            Assert.That(Tick(550), Is.True);
+            Assert.That(executed, Has.Count.EqualTo(2));
+        }
+
+        [Test]
         public void ToggleIsImmediateAndDoesNotResetCooldown()
         {
             Assert.That(Tick(0), Is.True);
