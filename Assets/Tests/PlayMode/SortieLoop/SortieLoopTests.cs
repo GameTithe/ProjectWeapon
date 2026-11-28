@@ -31,7 +31,7 @@ using TouchPhase = UnityEngine.InputSystem.TouchPhase;
 
 namespace ProjectWeapon.SortieLoop.Tests
 {
-    public sealed class SortieLoopTests
+    public sealed partial class SortieLoopTests
     {
         private const string LobbyPath = "Assets/Scenes/SortieLoop/SortieLoop.unity";
         private const string RoomName = "ZoneOneGreybox";
@@ -71,7 +71,7 @@ namespace ProjectWeapon.SortieLoop.Tests
             yield return LoadLobby(path);
         }
 
-        private IEnumerator LoadLobby(string path)
+        private IEnumerator LoadLobby(string path, Action<SortieLoopHost>? arrange = null)
         {
             void ConfigureLobby(Scene scene, LoadSceneMode mode)
             {
@@ -81,6 +81,7 @@ namespace ProjectWeapon.SortieLoop.Tests
                 lobby = scene;
                 host = scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<SortieLoopHost>(true))
                     .Single();
+                arrange?.Invoke(host);
                 host.Configure(path, () => clock);
             }
 
@@ -271,6 +272,7 @@ namespace ProjectWeapon.SortieLoop.Tests
             yield return LoadLobby(Path.Combine(profileDirectory!, "snapshot.json"));
             Assert.That(host.ReadZoneProgression().HighestUnlockedZoneId, Is.EqualTo(2));
             Assert.That(store.Load()!.Settlements, Has.Count.EqualTo(1));
+            yield return AssertReopenedZonesReadDurableUnlock();
         }
 
         [UnityTest]
@@ -632,6 +634,10 @@ namespace ProjectWeapon.SortieLoop.Tests
             Button open = ButtonNamed("Open Equipment");
             Assert.That(open.interactable, Is.False);
             open.onClick.Invoke();
+            Button zones = ButtonNamed("Open Zones");
+            Assert.That(zones.interactable, Is.False);
+            zones.onClick.Invoke();
+            Assert.That(VisibleButtons("Select Zone 1"), Is.Empty);
             yield return null;
             Assert.That(host.IsInLobby, Is.True);
             Assert.That(host.ActiveManifest, Is.Null);
@@ -890,7 +896,7 @@ namespace ProjectWeapon.SortieLoop.Tests
             yield return Tap(5, ButtonNamed("Weapon Slot 2"));
             Assert.That(ButtonNamed("Weapon Slot 2").interactable, Is.False);
             Assert.That(ButtonNamed("Weapon Slot 1").interactable, Is.True);
-            Assert.That(ButtonNamed("Skill").interactable, Is.False);
+            Assert.That(ButtonNamed("Skill").interactable, Is.True);
             Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.EqualTo(before - 10f));
 
             yield return Tap(6, ButtonNamed("Weapon Slot 1"));

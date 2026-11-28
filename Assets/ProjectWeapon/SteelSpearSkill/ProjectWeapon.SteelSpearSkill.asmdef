@@ -1,0 +1,12 @@
+{
+    "name": "ProjectWeapon.SteelSpearSkill",
+    "rootNamespace": "ProjectWeapon.SteelSpearSkill",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons"
+    ]
+}
