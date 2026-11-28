@@ -55,12 +55,22 @@ namespace ProjectWeapon.Extraction
         /// <summary>Resolves the complete frame, including scheduled completion when due.</summary>
         public RunResult? ProcessFrame(IEnumerable<RunSignal> frameSignals)
         {
+            ProcessFrame(frameSignals, recovery: false, interrupt: false, out RunResult? result);
+            return result;
+        }
+
+        public bool TryProcessRecoveryFrame(IEnumerable<RunSignal> frameSignals, bool interrupt, out RunResult? result)
+            => ProcessFrame(frameSignals, recovery: true, interrupt, out result);
+
+        private bool ProcessFrame(IEnumerable<RunSignal> frameSignals, bool recovery, bool interrupt,
+            out RunResult? result)
+        {
             RunId runId = run.CurrentRun?.Id ?? default;
             ExtractionAttempt? attempt = run.ActiveExtraction;
             TimeSpan frameAt = TimeSpan.Zero;
             bool requested = false;
 
-            RunResult? result = run.ProcessSignals(frameSignals, now =>
+            RunSignal? CompleteDueAt(TimeSpan now)
             {
                 frameAt = now;
                 if (attempt == null || now < attempt.CompletesAt
@@ -69,7 +79,17 @@ namespace ProjectWeapon.Extraction
 
                 requested = true;
                 return RunSignal.CompleteExtraction(runId, attempt.Id, attempt.CompletesAt);
-            });
+            }
+
+            if (recovery)
+            {
+                if (!run.TryProcessRecoveryFrame(frameSignals, CompleteDueAt, interrupt, out result))
+                    return false;
+            }
+            else
+            {
+                result = run.ProcessSignals(frameSignals, CompleteDueAt);
+            }
 
             if (requested)
             {
@@ -94,7 +114,7 @@ namespace ProjectWeapon.Extraction
                 Publish(null);
             }
 
-            return result;
+            return true;
         }
 
         private void Publish(ExtractionChannelProgress? sample)
