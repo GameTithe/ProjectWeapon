@@ -3,13 +3,20 @@
     "rootNamespace": "ProjectWeapon.WoodenSpearSkill.Tests",
     "references": [
         "ProjectWeapon.Combat",
+        "ProjectWeapon.CombatHud",
+        "ProjectWeapon.Enemies.Boss",
         "ProjectWeapon.Inventory",
         "ProjectWeapon.ManualSkill",
         "ProjectWeapon.ManualSkillUI",
         "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.SortieLoop",
         "ProjectWeapon.WeaponSwitch",
         "ProjectWeapon.Weapons",
         "ProjectWeapon.WoodenSpearSkill",
+        "ProjectWeapon.ZoneOneGreybox",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
         "UnityEngine.UI"
     ],
     "optionalUnityReferences": ["TestAssemblies"]

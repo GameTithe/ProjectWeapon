@@ -47,13 +47,14 @@ namespace ProjectWeapon.WoodenSpearSkill
 
         public bool IsBusy => pending is { } sequence && IsLiveRun(sequence.Request.RunId);
         public TimeSpan? NextThrustAt => IsBusy ? pending!.DueAt : null;
+        public WorldPoint2D? PendingOrigin => IsBusy ? pending!.Request.Origin : null;
 
         public bool TryStart(ManualSkillActivationRequest request)
         {
             if (IsBusy || run.Phase != RunPhase.Exploring || !IsLiveRun(request.RunId)
                 || run.CurrentRun is not { } session || request.StartedAt < session.StartedAt
                 || request.StartedAt >= session.Deadline || request.Pattern is not WoodenSpearThrustPattern pattern
-                || !pattern.CanStartAt(request.StartedAt) || request.Aim.Kind != ManualSkillAimKind.Direction
+                || !pattern.CanStart(request) || request.Aim.Kind != ManualSkillAimKind.Direction
                 || !request.Origin.IsFinite || !request.Aim.Vector.IsFinite
                 || request.Aim.Vector.SquaredDistanceTo(default) == 0d)
                 return false;

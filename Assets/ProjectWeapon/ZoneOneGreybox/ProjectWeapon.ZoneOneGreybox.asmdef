@@ -16,6 +16,7 @@
         "ProjectWeapon.Player",
         "ProjectWeapon.WeaponSwitch",
         "ProjectWeapon.Weapons",
+        "ProjectWeapon.WoodenSpearSkill",
         "ProjectWeapon.Combat",
         "ProjectWeapon.Dungeon",
         "ProjectWeapon.Extraction",
