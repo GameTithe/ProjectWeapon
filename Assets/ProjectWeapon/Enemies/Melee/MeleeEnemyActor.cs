@@ -12,6 +12,7 @@ namespace ProjectWeapon.Enemies
     {
         private Rigidbody2D? body;
         private MeleeEnemy? brain;
+        private TimeSpan? movementResumeAt;
         private double lastHitVisualAt = double.NegativeInfinity;
 
         public MeleeEnemy Brain => brain ?? throw new InvalidOperationException("Initialize the enemy before using it.");
@@ -34,6 +35,17 @@ namespace ProjectWeapon.Enemies
             MeleeEnemy state = Brain;
             var position = body!.position;
             state.Advance(now, new WorldPoint2D(position.x, position.y), player);
+            if (movementResumeAt is TimeSpan resumeAt)
+            {
+                if (now < resumeAt)
+                {
+                    body.linearVelocity = Vector2.zero;
+                    return;
+                }
+
+                movementResumeAt = null;
+            }
+
             WorldPoint2D velocity = state.MovementVelocity;
             body.linearVelocity = new Vector2(velocity.X, velocity.Y);
         }
@@ -46,6 +58,22 @@ namespace ProjectWeapon.Enemies
             lastHitVisualAt = Time.unscaledTimeAsDouble;
             if (Brain.Phase == MeleeEnemyPhase.Dead)
                 body!.linearVelocity = Vector2.zero;
+            return true;
+        }
+
+        /// <summary>Apply a confirmed hit and gate the physical movement output until the latest stop expires.</summary>
+        public bool ApplyMovementFreezeHit(MovementFreezeHit hit)
+        {
+            if (hit.ResumeAt <= hit.EffectiveAt || !ApplyDamage(hit.Damage, hit.EffectiveAt))
+                return false;
+
+            if (Brain.Phase != MeleeEnemyPhase.Dead)
+            {
+                if (!movementResumeAt.HasValue || hit.ResumeAt > movementResumeAt.Value)
+                    movementResumeAt = hit.ResumeAt;
+                body!.linearVelocity = Vector2.zero;
+            }
+
             return true;
         }
 
