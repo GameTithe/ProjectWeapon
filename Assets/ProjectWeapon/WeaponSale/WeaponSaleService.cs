@@ -116,9 +116,9 @@ namespace ProjectWeapon.WeaponSale
 
             long balance = current.ConfirmedCoins + price;
             var receipt = new WeaponSaleSaveRecord(requestId, instanceId, sold.DefinitionId, grade, price, balance);
-            var candidate = new SaveSnapshot(current.Revision + 1, balance,
-                current.Weapons.Where(weapon => weapon.Id != instanceId), current.Catalog, current.Settlements,
-                current.CoinWeaponDraws, current.WeaponSales.Append(receipt));
+            SaveSnapshot candidate = current.Next(balance,
+                weapons: current.Weapons.Where(weapon => weapon.Id != instanceId),
+                weaponSales: current.WeaponSales.Append(receipt));
 
             SnapshotCommitResult result = commit(current.Revision, candidate);
             SaveSnapshot? active = result.ActiveSnapshot;

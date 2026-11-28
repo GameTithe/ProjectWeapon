@@ -333,6 +333,74 @@ namespace ProjectWeapon.SortieLoop.Tests
             Assert.That(File.ReadAllBytes(path), Is.EqualTo(beforeReplay));
         }
 
+        [UnityTest]
+        public IEnumerator RefreshedLobbyPreservesAllTransactionHistoriesThroughReservationAndTimeout()
+        {
+            Click(ButtonNamed("Open Equipment"));
+            Click(WarehouseSwordButton());
+            Button staleConfirm = ButtonNamed("Confirm");
+            string path = Path.Combine(profileDirectory!, "snapshot.json");
+            var otherWriter = new AtomicSnapshotStore(path);
+            SaveSnapshot previous = otherWriter.Load()!;
+
+            Guid originalRunId = Guid.NewGuid();
+            var originalSettlement = new SettlementSaveRecord(originalRunId, "RunSettlement:" + originalRunId,
+                nameof(RunEndReason.Extracted));
+            var draw = new CoinWeaponDrawSaveRecord(Guid.NewGuid(), 500, InitialCoins, warehouseSpare.Id,
+                warehouseSpare.DefinitionId, grade: 1);
+            long balance = InitialCoins + 30;
+            var sale = new WeaponSaleSaveRecord(Guid.NewGuid(), WeaponInstanceId.New(), sword.DefinitionId,
+                grade: 1, price: 30, balanceAfterSale: balance);
+            var milestone = new CatalogMilestoneSaveRecord(5, 500, originalRunId);
+            var recovered = new[] { "old_sword", "wooden_spear", "hunting_bow", "mace", "dagger" }.Select(
+                id => new CatalogSaveRecord(new WeaponDefinitionId(id), "recovered"));
+            var history = new SaveSnapshot(previous.Revision + 1, balance, previous.Weapons, recovered,
+                new[] { originalSettlement }, new[] { draw }, new[] { sale }, new[] { milestone });
+            Assert.That(otherWriter.Commit(previous.Revision, history).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+
+            Click(staleConfirm);
+            Assert.That(host.ActiveManifest, Is.Null);
+            yield return WaitUntilOrFail(() => host.IsInLobby, "The lobby did not reload the newer saved history.");
+            Assert.That(host.ActiveRoom, Is.Null);
+            Assert.That(otherWriter.Load()!.Revision, Is.EqualTo(history.Revision));
+
+            yield return StartSortie(chooseSword: true);
+            Room room = host.ActiveRoom!;
+            RunSession session = room.Run.CurrentRun!;
+            Assert.That(session.Id.Value, Is.Not.EqualTo(originalRunId));
+            AssertReserved(sword, session.Id, revision: history.Revision + 1);
+            SaveSnapshot reserved = otherWriter.Load()!;
+            Assert.That(reserved.ConfirmedCoins, Is.EqualTo(balance));
+            Assert.That(reserved.Settlements.Select(item => item.RunId), Is.EqualTo(new[] { originalRunId }));
+            AssertHistory(reserved);
+
+            SetElapsed(session.Deadline);
+            yield return WaitUntilOrFail(() => room.Run.Result != null, "The reservation did not finalize at its deadline.");
+            Assert.That(room.Run.Result!.Reason, Is.EqualTo(RunEndReason.TimeExpired));
+            yield return ReturnToLobby();
+
+            SaveSnapshot settled = new AtomicSnapshotStore(path).Load()!;
+            Assert.That(settled.Revision, Is.EqualTo(history.Revision + 2));
+            Assert.That(settled.ConfirmedCoins, Is.EqualTo(balance));
+            CollectionAssert.AreEquivalent(new[] { originalRunId, session.Id.Value },
+                settled.Settlements.Select(item => item.RunId));
+            SettlementSaveRecord latest = settled.Settlements.Single(item => item.RunId == session.Id.Value);
+            Assert.That(latest.TransactionId, Is.EqualTo("RunSettlement:" + session.Id));
+            Assert.That(RunSettlementDetails.Read(latest)!.Reason, Is.EqualTo(RunEndReason.TimeExpired));
+            AssertWarehouse(settled, warehouseSpare);
+            Assert.That(settled.Weapons.Any(item => item.Id == sword.Id || item.Id == sale.InstanceId), Is.False);
+            AssertHistory(settled);
+
+            void AssertHistory(SaveSnapshot snapshot)
+            {
+                SettlementSaveRecord original = snapshot.Settlements.Single(item => item.RunId == originalRunId);
+                Assert.That(JsonUtility.ToJson(original), Is.EqualTo(JsonUtility.ToJson(originalSettlement)));
+                Assert.That(JsonUtility.ToJson(snapshot.CoinWeaponDraws.Single()), Is.EqualTo(JsonUtility.ToJson(draw)));
+                Assert.That(JsonUtility.ToJson(snapshot.WeaponSales.Single()), Is.EqualTo(JsonUtility.ToJson(sale)));
+                Assert.That(JsonUtility.ToJson(snapshot.CatalogMilestones.Single()), Is.EqualTo(JsonUtility.ToJson(milestone)));
+            }
+        }
+
         private IEnumerator StartSortie(bool chooseSword)
         {
             Click(ButtonNamed("Open Equipment"));
