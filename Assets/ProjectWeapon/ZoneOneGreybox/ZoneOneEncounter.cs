@@ -10,6 +10,7 @@ using ProjectWeapon.Enemies;
 using ProjectWeapon.Enemies.Boss;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Loot;
+using ProjectWeapon.MaceSkill;
 using ProjectWeapon.ManualSkill;
 using ProjectWeapon.OldSwordSkill;
 using ProjectWeapon.Player;
@@ -22,7 +23,7 @@ using UnityEngine.SceneManagement;
 namespace ProjectWeapon.ZoneOneGreybox
 {
     [DisallowMultipleComponent]
-    public sealed class ZoneOneEncounter : MonoBehaviour
+    public sealed class ZoneOneEncounter : MonoBehaviour, IManualSkillEffect
     {
         private const string PlayerId = "zone1-player";
         private const string MeleeId = "zone1-melee";
@@ -105,14 +106,14 @@ namespace ProjectWeapon.ZoneOneGreybox
         {
             weapon = equipment.ReadActiveWeapon()?.Definition;
             equipment.ActiveSlotChanged += selected => weapon = selected.Definition;
-            var skill = new OldSwordWideSlashEffect(ReadManualTargets, ApplyManualSlash);
-            return new ManualSkillExecutor(run, equipment, skill, isDodging, _ => null, PlayerId);
+            return new ManualSkillExecutor(run, equipment, this, isDodging, _ => null, PlayerId);
         }
 
         public bool IsWeaponActionBusy => run.Phase == RunPhase.Exploring
             && activeFlurry is { IsFinished: false };
 
-        public static bool SupportsManualSkill(ManualSkillPattern pattern) => pattern is OldSwordWideSlashPattern;
+        public static bool SupportsManualSkill(ManualSkillPattern pattern)
+            => pattern is OldSwordWideSlashPattern or MaceShockwavePattern;
 
         private IReadOnlyList<TargetCandidate> ReadManualTargets()
         {
@@ -123,10 +124,22 @@ namespace ProjectWeapon.ZoneOneGreybox
             return enemies;
         }
 
-        private void ApplyManualSlash(OldSwordWideSlashStrike slash)
+        bool IManualSkillEffect.TryStart(ManualSkillActivationRequest request)
         {
-            foreach (DamageRequest hit in slash.Hits)
-                HitEnemy(hit, slash.EffectiveAt);
+            IReadOnlyList<DamageRequest>? hits = request.Pattern switch
+            {
+                OldSwordWideSlashPattern sword when sword.TryCreateStrike(request, ReadManualTargets(), out var slash)
+                    => slash.Hits,
+                MaceShockwavePattern mace when mace.TryCreateStrike(request, ReadManualTargets(), out var shockwave)
+                    => shockwave.Hits,
+                _ => null
+            };
+            if (hits == null)
+                return false;
+
+            foreach (DamageRequest hit in hits)
+                HitEnemy(hit, request.StartedAt);
+            return true;
         }
 
         public bool TryOpenChest()
