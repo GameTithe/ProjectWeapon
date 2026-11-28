@@ -1,0 +1,17 @@
+{
+    "name": "ProjectWeapon.DirectionalSkillUI.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.ManualSkillUI.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.ManualSkillUI",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons",
+        "Unity.InputSystem",
+        "UnityEngine.UI"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

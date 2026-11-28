@@ -12,17 +12,21 @@ namespace ProjectWeapon.Loot
     {
         private CircleCollider2D? circle;
         private LootPickupCoordinator? pickup;
+        private Func<bool>? canCollect;
 
         public event Action<WorldLoot?, WeaponInstanceId, InventoryPickupResult>? OutcomeReported;
 
-        public void Initialize(LootPickupCoordinator coordinator)
+        public void Initialize(LootPickupCoordinator coordinator) => Initialize(coordinator, null);
+
+        public void Initialize(LootPickupCoordinator coordinator, Func<bool>? canCollect)
         {
             pickup = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
+            this.canCollect = canCollect;
         }
 
         public bool TryResolveChoice(WorldLoot? source, InventoryPickupChoice? choice, WeaponInstanceId? selectedId)
         {
-            if (pickup == null || choice == null)
+            if (pickup == null || choice == null || canCollect?.Invoke() == false)
                 return false;
 
             WorldLoot? matchedSource = source && source!.Item?.Id == choice.Loot.Id ? source : null;
@@ -48,7 +52,7 @@ namespace ProjectWeapon.Loot
 
         private void Observe(Collider2D other)
         {
-            if (pickup == null || !TryGetRange(out Vector2 center, out float radius))
+            if (pickup == null || canCollect?.Invoke() == false || !TryGetRange(out Vector2 center, out float radius))
                 return;
 
             WorldLoot source = other.GetComponentInParent<WorldLoot>();

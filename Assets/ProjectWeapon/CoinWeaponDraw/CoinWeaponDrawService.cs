@@ -89,7 +89,7 @@ namespace ProjectWeapon.CoinWeaponDraw
             if (current.ConfirmedCoins < cost)
                 return new CoinWeaponDrawResult(CoinWeaponDrawStatus.InsufficientFunds, current);
 
-            long nextRevision = checked(current.Revision + 1);
+            _ = checked(current.Revision + 1);
             var weapons = new WeaponInstance[awardCount];
             var awards = new CoinWeaponDrawAward[awardCount];
             for (int index = 0; index < awardCount; index++)
@@ -103,8 +103,8 @@ namespace ProjectWeapon.CoinWeaponDraw
 
             long remaining = current.ConfirmedCoins - cost;
             var receipt = new CoinWeaponDrawSaveRecord(requestId, cost, remaining, awards);
-            var candidate = new SaveSnapshot(nextRevision, remaining, current.Weapons.Concat(weapons), current.Catalog,
-                current.Settlements, current.CoinWeaponDraws.Append(receipt));
+            SaveSnapshot candidate = current.Next(remaining, weapons: current.Weapons.Concat(weapons),
+                coinWeaponDraws: current.CoinWeaponDraws.Append(receipt));
             SnapshotCommitResult result = commit(current.Revision, candidate);
             SaveSnapshot? active = result.ActiveSnapshot;
             if (active != null && active.TryGetCoinWeaponDraw(requestId, out CoinWeaponDrawSaveRecord? committed))

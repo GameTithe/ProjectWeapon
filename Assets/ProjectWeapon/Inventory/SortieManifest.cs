@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ProjectWeapon.Inventory
 {
@@ -37,5 +38,13 @@ namespace ProjectWeapon.Inventory
 
         public Guid RunId { get; }
         public IReadOnlyList<WeaponInstance> Equipped { get; }
+
+        public bool MatchesReservations(IEnumerable<WeaponInstance> savedWeapons)
+        {
+            WeaponInstance[] reserved = savedWeapons.Where(item => item.Location.ReservedRunId == RunId).ToArray();
+            return reserved.Length == Equipped.Count && Equipped.All(item =>
+                reserved.Any(saved => saved.Id == item.Id && saved.DefinitionId.Equals(item.DefinitionId)
+                    && saved.Provenance == item.Provenance));
+        }
     }
 }

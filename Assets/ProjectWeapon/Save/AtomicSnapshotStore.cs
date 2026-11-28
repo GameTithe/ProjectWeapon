@@ -217,6 +217,12 @@ namespace ProjectWeapon.Save
                 }
             }
 
+            foreach (WeaponSaleSaveRecord sale in snapshot.WeaponSales)
+            {
+                if (!definitionExists(sale.DefinitionId))
+                    return $"Weapon sale '{sale.RequestId}' references missing definition '{sale.DefinitionId}'.";
+            }
+
             return null;
         }
 

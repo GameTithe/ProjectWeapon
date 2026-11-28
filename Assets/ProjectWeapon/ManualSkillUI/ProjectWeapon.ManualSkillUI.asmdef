@@ -1,0 +1,13 @@
+{
+    "name": "ProjectWeapon.ManualSkillUI",
+    "rootNamespace": "ProjectWeapon.ManualSkillUI",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons",
+        "Unity.InputSystem",
+        "UnityEngine.UI"
+    ]
+}
