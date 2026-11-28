@@ -11,6 +11,7 @@ using ProjectWeapon.Inventory;
 using ProjectWeapon.Loot;
 using ProjectWeapon.Movement;
 using ProjectWeapon.Player;
+using ProjectWeapon.PrisonGuard;
 using ProjectWeapon.Run;
 using ProjectWeapon.Weapons;
 using UnityEngine;
@@ -45,11 +46,12 @@ namespace ProjectWeapon.Zone2Prison
         [SerializeField] private RangedEnemySettings sentrySettings = null!;
         [SerializeField] private LineRenderer guardWarning = null!;
         [SerializeField] private LineRenderer sentryWarning = null!;
+        [SerializeField] private PrisonGuardActor boss = null!;
 
         private readonly InventoryService bag = new InventoryService(Array.Empty<WeaponInstance>());
         private readonly PlayerHealth health = new PlayerHealth(100);
         private readonly List<RaycastHit2D> wallHits = new List<RaycastHit2D>();
-        private readonly TargetCandidate[] enemies = new TargetCandidate[2];
+        private readonly TargetCandidate[] enemies = new TargetCandidate[3];
         private readonly List<(DamageRequest Hit, TimeSpan At)> incoming = new List<(DamageRequest, TimeSpan)>();
         private readonly List<RunSignal> signals = new List<RunSignal>();
         private RunState run = null!;
@@ -66,6 +68,9 @@ namespace ProjectWeapon.Zone2Prison
         public RunState Run => run;
         public MeleeEnemyActor Guard => guard;
         public RangedEnemyActor Sentry => sentry;
+        public PrisonGuardActor Boss => boss;
+        public PrisonGuardDefeat? BossDefeat { get; private set; }
+        public event Action<PrisonGuardDefeat>? BossDefeated;
         public FixedLootChest Chest => chest;
         public int PlayerHealth => health.CurrentHealth;
         public IReadOnlyList<WeaponInstance> Carried => bag.Snapshot();
@@ -96,6 +101,8 @@ namespace ProjectWeapon.Zone2Prison
 
             guard.Initialize(GuardId, guardSettings);
             sentry.Initialize(SentryId, sentrySettings);
+            boss.Bind(run, PlayerId, playerBody, health, walls);
+            boss.Defeated += PublishBossDefeat;
             guard.Brain.AttackResolved += (attack, hits) => RecordHits(hits, attack.HitsAt);
             sentry.Brain.AttackResolved += (attack, hits) => RecordHits(hits, attack.HitsAt);
             guard.Brain.Died += _ =>
@@ -112,6 +119,22 @@ namespace ProjectWeapon.Zone2Prison
                 if (drop && result.Status == InventoryPickupStatus.PickedUp)
                     drop!.gameObject.SetActive(false);
             };
+        }
+
+        private void OnDestroy()
+        {
+            if (boss)
+                boss.Defeated -= PublishBossDefeat;
+        }
+
+        private void PublishBossDefeat(PrisonGuardDefeat defeat)
+        {
+            if (BossDefeat.HasValue || defeat.RunId != runId || defeat.ZoneId != ZoneId
+                || !StringComparer.Ordinal.Equals(defeat.BossId, PrisonGuardActor.BossId))
+                return;
+
+            BossDefeat = defeat;
+            BossDefeated?.Invoke(defeat);
         }
 
         private void Update()
@@ -182,6 +205,9 @@ namespace ProjectWeapon.Zone2Prison
             if (now < run.CurrentRun.Deadline || sentry.Brain.ActiveAttack.HasValue)
                 sentry.Advance(now, new TargetCandidate(PlayerId, Point(player), alive, HasClearPath(sentry.transform.position, player)));
 
+            if (boss.Advance(now) is { } slam)
+                RecordHits(slam.Hits, slam.Attack.HitsAt);
+
             incoming.Sort((left, right) => left.At.CompareTo(right.At));
             foreach ((DamageRequest hit, TimeSpan at) in incoming)
                 PlayerRunDamage.ApplyHit(health, run, runId, Mathf.RoundToInt(hit.Amount), at, signals, movement.Dodge);
@@ -195,6 +221,9 @@ namespace ProjectWeapon.Zone2Prison
                 HasClearPath(player, guardPosition));
             enemies[1] = new TargetCandidate(SentryId, Point(sentryPosition), sentry.Brain.CurrentHealth > 0,
                 HasClearPath(player, sentryPosition));
+            Vector2 bossPosition = boss.transform.position;
+            enemies[2] = new TargetCandidate(PrisonGuardActor.BossId, Point(bossPosition), boss.CurrentHealth > 0,
+                HasClearPath(player, bossPosition));
             attacks.TryAttack(now, Point(player), validationSword, enemies);
         }
 
@@ -210,6 +239,8 @@ namespace ProjectWeapon.Zone2Prison
                     guard.ApplyDamage(hit, attack.StartedAt);
                 else if (StringComparer.Ordinal.Equals(hit.TargetId, SentryId))
                     sentry.ApplyDamage(hit, attack.StartedAt);
+                else if (StringComparer.Ordinal.Equals(hit.TargetId, PrisonGuardActor.BossId))
+                    boss.ApplyDamage(hit, attack.StartedAt);
             }
             return true;
         }
