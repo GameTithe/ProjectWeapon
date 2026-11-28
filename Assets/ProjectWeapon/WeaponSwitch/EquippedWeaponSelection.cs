@@ -33,6 +33,8 @@ namespace ProjectWeapon.WeaponSwitch
         private readonly Func<bool> isAttackOrSkillBusy;
         private readonly WeaponActionLocks locks;
         private readonly RunId runId;
+        private bool startingSkill;
+        private bool switching;
 
         public EquippedWeaponSelection(RunState run, InventoryService inventory, WeaponCatalog catalog,
             Func<bool> isAttackOrSkillBusy, WeaponActionLocks locks)
@@ -59,21 +61,29 @@ namespace ProjectWeapon.WeaponSwitch
         public bool TrySwitch(int slotIndex, TimeSpan observedAt)
         {
             if ((uint)slotIndex >= SlotCount || ActiveSlotIndex == slotIndex
-                || !CanAct(observedAt) || isAttackOrSkillBusy())
+                || !CanAct(observedAt) || startingSkill || switching || isAttackOrSkillBusy())
                 return false;
 
             if (Find(inventory.Snapshot(), slotIndex) is not SelectedWeapon target)
                 return false;
 
             ActiveSlotIndex = slotIndex;
-            ActiveSlotChanged?.Invoke(target);
+            switching = true;
+            try
+            {
+                ActiveSlotChanged?.Invoke(target);
+            }
+            finally
+            {
+                switching = false;
+            }
             return true;
         }
 
         public bool TryGetReadyWeapon(CombatWeaponAction action, TimeSpan observedAt, out SelectedWeapon weapon)
         {
             weapon = default;
-            if (!CanAct(observedAt) || ReadActiveWeapon() is not SelectedWeapon candidate)
+            if (startingSkill || !CanAct(observedAt) || ReadActiveWeapon() is not SelectedWeapon candidate)
                 return false;
 
             ScriptableObject? definition = action switch
@@ -87,6 +97,35 @@ namespace ProjectWeapon.WeaponSwitch
 
             weapon = candidate;
             return true;
+        }
+
+        /// <summary>Start a skill under the same busy guard and locks used by equipped-slot selection.</summary>
+        /// <remarks>The callback returns the two validated ready times only if its effect started.</remarks>
+        public bool TryStartSkill(RunId expectedRunId, TimeSpan observedAt,
+            Func<SelectedWeapon, (TimeSpan Shared, TimeSpan Weapon)?> tryStart)
+        {
+            if (tryStart == null)
+                throw new ArgumentNullException(nameof(tryStart));
+            if (expectedRunId != runId || switching
+                || !TryGetReadyWeapon(CombatWeaponAction.Skill, observedAt, out SelectedWeapon weapon)
+                || isAttackOrSkillBusy())
+                return false;
+
+            startingSkill = true;
+            try
+            {
+                var cooldowns = tryStart(weapon);
+                if (!cooldowns.HasValue)
+                    return false;
+
+                locks.RecordAccepted(CombatWeaponAction.Skill, weapon.InstanceId,
+                    cooldowns.Value.Shared, cooldowns.Value.Weapon);
+                return true;
+            }
+            finally
+            {
+                startingSkill = false;
+            }
         }
 
         private bool CanAct(TimeSpan observedAt)
