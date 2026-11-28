@@ -61,6 +61,7 @@ namespace ProjectWeapon.ZoneOneGreybox
         public MeleeEnemyActor Melee => melee;
         public RangedEnemyActor Ranged => ranged;
         public FixedLootChest Chest => chest;
+        public PlayerHealth Health => health;
         public int PlayerHealth => health.CurrentHealth;
         public IReadOnlyList<WeaponInstance> Collected => field.Snapshot().Where(item => item.Location.Kind == WeaponLocationKind.Carried).ToArray();
         public IReadOnlyList<WeaponInstance> Held => field.Snapshot();
