@@ -20,6 +20,7 @@
         "ProjectWeapon.Dungeon",
         "ProjectWeapon.Extraction",
         "ProjectWeapon.Run",
+        "ProjectWeapon.WandererArt",
         "Unity.InputSystem"
     ]
 }
