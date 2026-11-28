@@ -56,7 +56,7 @@ namespace ProjectWeapon.Enemies.Boss
 
         public void Advance(TimeSpan now, WorldPoint2D origin, TargetCandidate player)
         {
-            if (run.CurrentRun?.Id != session.Id || run.Result != null || now >= session.Deadline)
+            if (run.CurrentRun?.Id != session.Id || run.Result != null)
             {
                 ActiveCast = null;
                 return;
@@ -71,11 +71,15 @@ namespace ProjectWeapon.Enemies.Boss
                     return;
 
                 ActiveCast = null;
-                readyAt = now <= TimeSpan.MaxValue - settings.Recovery ? now + settings.Recovery : TimeSpan.MaxValue;
-                ShockwaveResolved?.Invoke(cast, AreaDamageSelector.FindTargets(cast.Area, new[] { player }), now);
+                if (cast.HitsAt >= session.Deadline)
+                    return;
+
+                readyAt = cast.HitsAt <= TimeSpan.MaxValue - settings.Recovery
+                    ? cast.HitsAt + settings.Recovery : TimeSpan.MaxValue;
+                ShockwaveResolved?.Invoke(cast, AreaDamageSelector.FindTargets(cast.Area, new[] { player }), cast.HitsAt);
                 return;
             }
-            if (now < readyAt || !origin.IsFinite || !player.IsEligible
+            if (now >= session.Deadline || now < readyAt || !origin.IsFinite || !player.IsEligible
                 || StringComparer.Ordinal.Equals(TargetId, player.TargetId)
                 || origin.SquaredDistanceTo(player.Position) > (double)settings.AggroRadius * settings.AggroRadius
                 || session.Deadline - now <= settings.Windup)
