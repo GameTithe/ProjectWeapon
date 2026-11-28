@@ -1,0 +1,16 @@
+{
+    "name": "ProjectWeapon.SaveCrashQA.Tests",
+    "rootNamespace": "ProjectWeapon.SaveCrashQA.Tests",
+    "references": [
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.RunRecovery",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement",
+        "ProjectWeapon.Wallet",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
