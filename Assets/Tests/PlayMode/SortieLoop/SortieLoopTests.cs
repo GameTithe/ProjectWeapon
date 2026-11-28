@@ -135,6 +135,8 @@ namespace ProjectWeapon.SortieLoop.Tests
             yield return StartSortie(chooseSword: true);
             Room room = host.ActiveRoom!;
             RunId firstRun = room.Run.CurrentRun!.Id;
+            CombatActionHud hud = host.ActiveHud!;
+            Assert.That(hud.SafeAreaRoot.Find("Extraction Status/Status").gameObject.activeSelf, Is.False);
             AssertReserved(sword, firstRun, revision: 2);
             AssertWarehouse(store.Load()!, warehouseSpare);
 
@@ -151,7 +153,9 @@ namespace ProjectWeapon.SortieLoop.Tests
             var rangedImpact = room.Encounter.Ranged.Brain.ActiveAttack!.Value.HitsAt;
             int health = room.Encounter.PlayerHealth;
 
-            yield return PressInteract();
+            ClickByRaycast(ButtonNamed("Extract"));
+            yield return null;
+            yield return ExpectExtractionHud(hud, "귀환 중", "0%");
             ExtractionAttempt interruptedByMovement = ActiveAttempt(room);
             Assert.That(interruptedByMovement.CompletesAt - interruptedByMovement.StartedAt,
                 Is.EqualTo(TimeSpan.FromSeconds(3)));
@@ -161,29 +165,43 @@ namespace ProjectWeapon.SortieLoop.Tests
             SendKeyboard();
             AssertCancelled(room, firstRun);
             Assert.That(room.Encounter.PlayerHealth, Is.EqualTo(health));
+            yield return ExpectExtractionHud(hud, "이동으로 귀환 중단");
 
             room.Player.position = room.ExtractionCenter;
-            yield return PressInteract();
+            yield return WaitUntilOrFail(() => ButtonNamed("Extract").interactable, "The return button did not enable at the portal.");
+            ClickByRaycast(ButtonNamed("Extract"));
+            yield return null;
+            yield return ExpectExtractionHud(hud, "귀환 중", "0%");
             ExtractionAttempt interruptedByHit = ActiveAttempt(room);
             Assert.That(interruptedByHit.Id, Is.Not.EqualTo(interruptedByMovement.Id));
             SetElapsed(rangedImpact);
             yield return null;
             AssertCancelled(room, firstRun);
-            Assert.That(room.Encounter.PlayerHealth, Is.LessThan(health));
+            Assert.That(room.Encounter.PlayerHealth, Is.EqualTo(health - 6));
+            yield return ExpectExtractionHud(hud, "공격으로 귀환 중단");
 
             yield return DefeatRangedEnemy(room);
             room.Player.position = room.ExtractionCenter;
-            yield return PressInteract();
+            yield return WaitUntilOrFail(() => ButtonNamed("Extract").interactable, "The return button did not enable at the portal.");
+            ClickByRaycast(ButtonNamed("Extract"));
+            yield return null;
+            yield return ExpectExtractionHud(hud, "귀환 중", "0%");
             ExtractionAttempt completed = ActiveAttempt(room);
+            SetElapsed(completed.StartedAt + TimeSpan.FromMilliseconds(1500));
+            yield return null;
+            yield return ExpectExtractionHud(hud, "귀환 중", "50%");
             SetElapsed(completed.CompletesAt - TimeSpan.FromMilliseconds(1));
             yield return null;
             Assert.That(room.Phase, Is.EqualTo(RunPhase.Extracting));
+            yield return ExpectExtractionHud(hud, "귀환 중", "99%");
             Assert.That(store.Load()!.Settlements, Is.Empty);
 
             SetElapsed(completed.CompletesAt);
             yield return null;
             Assert.That(room.Phase, Is.EqualTo(RunPhase.Succeeded));
             Assert.That(room.Run.Result!.EffectiveAt, Is.EqualTo(completed.CompletesAt));
+            Assert.That(host.ActiveHud, Is.Null);
+            Assert.That(VisibleResultTitle()?.text, Is.EqualTo("귀환 성공"));
             SaveSnapshot written = store.Load()!;
             RunSettlementDetails details = ReadReceipt(written, firstRun, RunEndReason.Extracted);
             AssertWarehouse(written, sword);
@@ -200,6 +218,7 @@ namespace ProjectWeapon.SortieLoop.Tests
             yield return StartSortie(chooseSword: false);
             Room next = host.ActiveRoom!;
             RunId nextRun = next.Run.CurrentRun!.Id;
+            Assert.That(host.ActiveHud!.SafeAreaRoot.Find("Extraction Status/Status").gameObject.activeSelf, Is.False);
             Assert.That(nextRun, Is.Not.EqualTo(firstRun));
             WeaponInstance loan = host.ActiveManifest!.Equipped.Single();
             Assert.That(loan.Provenance, Is.EqualTo(WeaponProvenance.Loan));
@@ -208,6 +227,37 @@ namespace ProjectWeapon.SortieLoop.Tests
             AssertReserved(loan, nextRun, revision: 4);
             AssertWarehouse(store.Load()!, sword);
             AssertWarehouse(store.Load()!, loot);
+        }
+
+        [UnityTest]
+        public IEnumerator CompletedChannelWithLockedSaveOffersRetryBeforeTheReceiptBasedSuccessScreen()
+        {
+            yield return StartSortie(chooseSword: true);
+            Room room = host.ActiveRoom!;
+            yield return DefeatRangedEnemy(room);
+            room.Player.position = room.ExtractionCenter;
+            yield return null;
+            ClickByRaycast(ButtonNamed("Extract"));
+            yield return null;
+            ExtractionAttempt attempt = ActiveAttempt(room);
+
+            string lockPath = Path.Combine(profileDirectory!, "snapshot.json.lock");
+            using (new FileStream(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            {
+                SetElapsed(attempt.CompletesAt);
+                yield return null;
+                Assert.That(room.Run.Result?.Reason, Is.EqualTo(RunEndReason.Extracted));
+                Assert.That(host.ActiveHud, Is.Null);
+                Assert.That(VisibleResultTitle(), Is.Null);
+                Assert.That(ButtonNamed("Retry Settlement").interactable, Is.True);
+                Assert.That(store.Load()!.Settlements, Is.Empty);
+            }
+
+            Click(ButtonNamed("Retry Settlement"));
+            yield return null;
+            Assert.That(VisibleResultTitle()?.text, Is.EqualTo("귀환 성공"));
+            Assert.That(store.Load()!.Settlements, Has.Count.EqualTo(1));
+            ReadReceipt(store.Load()!, room.Run.CurrentRun!.Id, RunEndReason.Extracted);
         }
 
         [UnityTest]
@@ -646,6 +696,24 @@ namespace ProjectWeapon.SortieLoop.Tests
             Assert.That(active.CatalogMilestones.Single().SourceRunId, Is.EqualTo(priorMilestone.SourceRunId));
             CollectionAssert.AreEquivalent(afterSale.WeaponSales.Select(item => item.RequestId),
                 active.WeaponSales.Select(item => item.RequestId));
+        }
+
+        private TMP_Text? VisibleResultTitle()
+            => lobby.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<TMP_Text>())
+                .SingleOrDefault(label => label.name == "Result Title");
+
+        private static IEnumerator ExpectExtractionHud(CombatActionHud hud, string message, string? progress = null)
+        {
+            Transform status = hud.SafeAreaRoot.Find("Extraction Status/Status");
+            TMP_Text title = status.Find("Title").GetComponent<TMP_Text>();
+            TMP_Text percentage = status.Find("Percentage").GetComponent<TMP_Text>();
+            yield return WaitUntilOrFail(() => status.gameObject.activeInHierarchy && title.text == message
+                && (progress == null || percentage.text == progress), "The extraction HUD did not refresh after the room frame.");
+
+            Assert.That(title.text.All(glyph => title.font.HasCharacter(glyph)), Is.True, "The live font must contain every label glyph.");
+            Assert.That(status.GetComponentsInChildren<Graphic>(true).All(graphic => !graphic.raycastTarget), Is.True);
+            Assert.That(status.Find("Progress Track").gameObject.activeSelf, Is.EqualTo(progress != null));
+            Assert.That(percentage.gameObject.activeSelf, Is.EqualTo(progress != null));
         }
 
         private void ClickByRaycast(Button button)
