@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using ProjectWeapon.CatalogUI;
 using ProjectWeapon.Dungeon;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Run;
@@ -41,6 +42,9 @@ namespace ProjectWeapon.SortieLoop
         [SerializeField] private WarehousePanel warehouse = null!;
         [SerializeField] private TMP_FontAsset warehouseHangul = null!;
         [SerializeField] private WeaponSalePrices warehousePrices = null!;
+        [SerializeField] private Button openCatalog = null!;
+        [SerializeField] private CatalogListPanel catalogList = null!;
+        [SerializeField] private TMP_FontAsset catalogHangul = null!;
         [SerializeField] private Button retry = null!;
         [SerializeField] private TMP_Text lobbyStatus = null!;
         [SerializeField] private TMP_Text loading = null!;
@@ -87,6 +91,9 @@ namespace ProjectWeapon.SortieLoop
             results.Initialize(weapons, hangul);
             openEquipment.onClick.AddListener(OpenEquipment);
             openWarehouse.onClick.AddListener(OpenWarehouse);
+            openCatalog.onClick.AddListener(OpenCatalog);
+            catalogList.Initialize(catalogHangul, ReadCatalogSnapshot);
+            catalogList.Closed += () => lobby.SetActive(true);
             var townRun = new RunState(() => TimeSpan.Zero);
             var sales = new WeaponSaleService(store, townRun, weapons, warehousePrices);
             warehouse.Initialize(weapons, warehouseHangul, warehousePrices, townRun, ReadWarehouse,
@@ -206,6 +213,28 @@ namespace ProjectWeapon.SortieLoop
                 return;
             lobby.SetActive(false);
             equipment!.Open();
+        }
+
+        private void OpenCatalog()
+        {
+            if (active != null || returning || !lobby.activeSelf || !lifecycle.IsAvailable)
+                return;
+            lobby.SetActive(false);
+            catalogList.Open();
+        }
+
+        private SaveSnapshot? ReadCatalogSnapshot()
+        {
+            try
+            {
+                // The read-only roster can interpret saved entries beyond the loaded combat definitions.
+                return store.Load();
+            }
+            catch (Exception error) when (error is IOException || error is InvalidDataException
+                || error is UnauthorizedAccessException)
+            {
+                return null;
+            }
         }
 
         private bool IsWarehouseOpen => active == null && !returning && warehouse.IsOpen;
