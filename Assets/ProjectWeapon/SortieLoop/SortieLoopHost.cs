@@ -202,8 +202,7 @@ namespace ProjectWeapon.SortieLoop
             if (start.Status != SortieStartStatus.Started || start.Manifest == null)
                 return start;
 
-            SaveSnapshot proposed = new SaveSnapshot(checked(profile.Revision + 1), profile.ConfirmedCoins,
-                proposedTown.Snapshot(), profile.Catalog, profile.Settlements, profile.CoinWeaponDraws, profile.WeaponSales);
+            SaveSnapshot proposed = profile.Next(profile.ConfirmedCoins, weapons: proposedTown.Snapshot());
             try
             {
                 SnapshotCommitResult commit = store.Commit(profile.Revision, proposed);
