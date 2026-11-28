@@ -24,6 +24,7 @@ public sealed record WeeklyConditions(
     internal bool IsValidFor(DateTimeOffset week)
         => WeekStartUtc.Offset == TimeSpan.Zero
             && WeekStartUtc == week
+            && WeekStartUtc <= DateTimeOffset.MaxValue.AddDays(-7)
             && DurationSeconds is > 0 and <= 7 * 24 * 60 * 60
             && IsKey(ConditionsVersion) && IsKey(MapVersion) && IsKey(EnemiesVersion) && IsKey(ChestsVersion)
             && IsKey(RulesVersion) && IsKey(EquipmentVersion) && IsKey(FirstWeaponDefinitionId)
@@ -115,7 +116,8 @@ public sealed class WeeklyChallengeIssuer
                 return View(existing, now);
 
             DateTimeOffset week = WeeklyConditions.Monday(now);
-            int count = issued.Count(item => item.Conditions.WeekStartUtc == week);
+            IssuedAttempt[] issuedThisWeek = issued.Where(item => item.Conditions.WeekStartUtc == week).ToArray();
+            int count = issuedThisWeek.Length;
             if (count >= WeeklyLimit)
                 return new(WeeklyIssueStatus.WeeklyLimitReached);
 
@@ -123,7 +125,8 @@ public sealed class WeeklyChallengeIssuer
             now = utcNow().ToUniversalTime();
             if (WeeklyConditions.Monday(now) != week)
                 continue;
-            if (frozen is null || !frozen.IsValidFor(week))
+            if (frozen is null || !frozen.IsValidFor(week)
+                || (count > 0 && issuedThisWeek[0].Conditions != frozen))
                 return new(WeeklyIssueStatus.AuthorityUnavailable);
 
             Guid attemptId = Guid.NewGuid();
@@ -164,7 +167,7 @@ public sealed class WeeklyChallengeIssuer
 
         var attempts = new HashSet<Guid>();
         var requests = new HashSet<Guid>();
-        var counts = new Dictionary<DateTimeOffset, int>();
+        var weeks = new Dictionary<DateTimeOffset, (int Count, WeeklyConditions Conditions)>();
         foreach (IssuedAttempt item in ledger.Attempts)
         {
             if (item is null || item.AccountId != accountId || item.Conditions is null
@@ -174,11 +177,13 @@ public sealed class WeeklyChallengeIssuer
                 return false;
 
             DateTimeOffset week = WeeklyConditions.Monday(item.IssuedAtUtc);
-            int number = counts.GetValueOrDefault(week) + 1;
+            bool hasPrior = weeks.TryGetValue(week, out var prior);
+            int number = prior.Count + 1;
             if (number > WeeklyLimit || item.AttemptNumber != number || !item.Conditions.IsValidFor(week)
+                || (hasPrior && prior.Conditions != item.Conditions)
                 || item.ExpiresAtUtc != Expiry(item.Conditions, item.IssuedAtUtc))
                 return false;
-            counts[week] = number;
+            weeks[week] = (number, item.Conditions);
         }
 
         return true;
@@ -186,8 +191,9 @@ public sealed class WeeklyChallengeIssuer
 
     private static DateTimeOffset Expiry(WeeklyConditions conditions, DateTimeOffset issuedAt)
     {
-        DateTimeOffset durationEnd = issuedAt.AddSeconds(conditions.DurationSeconds);
-        return durationEnd < conditions.WeekEndUtc ? durationEnd : conditions.WeekEndUtc;
+        DateTimeOffset weekEnd = conditions.WeekEndUtc;
+        TimeSpan duration = TimeSpan.FromSeconds(conditions.DurationSeconds);
+        return duration < weekEnd - issuedAt ? issuedAt + duration : weekEnd;
     }
 
     private static WeeklyIssueResult View(IssuedAttempt attempt, DateTimeOffset now)

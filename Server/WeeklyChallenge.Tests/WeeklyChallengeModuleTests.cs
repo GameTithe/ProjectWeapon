@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
@@ -101,6 +102,61 @@ public sealed class WeeklyChallengeModuleTests
         Assert.That(api.Writes, Is.Empty);
     }
 
+    [Test]
+    public async Task ParseableLedgerWithUnrepresentableWeekReturnsUnavailableWithoutWrites()
+    {
+        var api = new CloudSaveFixture();
+        IssuedAttempt normal = SeedAttempt(api.Settings);
+        JsonObject stored = JsonSerializer.SerializeToNode(new PlayerLedger(Account, [normal]))!.AsObject();
+        JsonObject recorded = stored["Attempts"]![0]!.AsObject();
+
+        DateTimeOffset nearMax = DateTimeOffset.MaxValue.AddSeconds(-1);
+        recorded["Conditions"]!["WeekStartUtc"] = JsonValue.Create(WeeklyConditions.Monday(nearMax));
+        recorded["IssuedAtUtc"] = JsonValue.Create(nearMax);
+        recorded["ExpiresAtUtc"] = JsonValue.Create(DateTimeOffset.MaxValue);
+        api.OverridePlayerValue = new JValue(stored.ToJsonString());
+
+        WeeklyIssueResult result = await api.NewModule().IssueWeeklyAttemptAsync(api.Context, api.Client,
+            normal.RequestId.ToString("D"));
+        Assert.That(result.Status, Is.EqualTo(WeeklyIssueStatus.AuthorityUnavailable));
+        Assert.That(result.Attempt, Is.Null);
+        Assert.That(api.Writes, Is.Empty);
+    }
+
+    [Test]
+    public async Task ParseableLedgerWithDivergentSameWeekConditionsReturnsUnavailable()
+    {
+        var api = new CloudSaveFixture();
+        IssuedAttempt first = SeedAttempt(api.Settings);
+        IssuedAttempt second = SeedAttempt(api.Settings with { MapSeed = 99 }) with { AttemptNumber = 2 };
+        api.OverridePlayerValue = new JValue(JsonSerializer.Serialize(new PlayerLedger(Account, [first, second])));
+
+        WeeklyIssueResult result = await api.NewModule().IssueWeeklyAttemptAsync(api.Context, api.Client,
+            first.RequestId.ToString("D"));
+        Assert.That(result.Status, Is.EqualTo(WeeklyIssueStatus.AuthorityUnavailable));
+        Assert.That(result.Attempt, Is.Null);
+        Assert.That(api.Writes, Is.Empty);
+    }
+
+    [Test]
+    public async Task AlternateFrozenConditionsCannotExtendExistingAccountLedger()
+    {
+        var api = new CloudSaveFixture();
+        IssuedAttempt issued = SeedAttempt(api.Settings with { MapSeed = 99 });
+        api.OverridePlayerValue = new JValue(JsonSerializer.Serialize(new PlayerLedger(Account, [issued])));
+        api.UseFrozenSettings();
+
+        WeeklyIssueResult result = await api.NewModule().IssueWeeklyAttemptAsync(api.Context, api.Client,
+            Guid.NewGuid().ToString("D"));
+        Assert.That(result.Status, Is.EqualTo(WeeklyIssueStatus.AuthorityUnavailable));
+        Assert.That(result.Attempt, Is.Null);
+        Assert.That(api.Writes, Is.Empty);
+    }
+
+    private static IssuedAttempt SeedAttempt(WeeklyConditions conditions)
+        => new(Guid.NewGuid(), Guid.NewGuid(), Account, conditions, 1, conditions.WeekStartUtc,
+            conditions.WeekStartUtc.AddSeconds(conditions.DurationSeconds));
+
     private static IExecutionContext MakeContext(string? player)
         => CreateProxy<IExecutionContext>((method, _) => method switch
         {
@@ -142,6 +198,7 @@ public sealed class WeeklyChallengeModuleTests
         public JValue? OverridePlayerValue { get; set; }
 
         public WeeklyChallengeModule NewModule() => new(() => Settings.WeekStartUtc.AddHours(1));
+        public void UseFrozenSettings() => Week = Week with { Frozen = Settings };
 
         private object Call(string method, object?[] arguments)
         {

@@ -37,4 +37,4 @@ dotnet test Server/WeeklyChallenge.Tests/WeeklyChallenge.Tests.csproj -c Release
 dotnet publish Server/WeeklyChallenge/WeeklyChallenge.csproj -c Release -r linux-x64 --no-self-contained -p:PublishReadyToRun=true
 ```
 
-.NET 10.0.401에서 Release 테스트 19/19건이 통과했다. 실제 Cloud Code SDK 타입을 통한 모듈 바인딩은 로컬 대역으로 검증했다. 같은 회차 조건과 고정 경합, 다섯 번째 발급 경합, 동일 요청 경합, 응답 유실과 회차 경계, 소유자 불일치, 저장 잠금·설정 누락, 손상된 레코드를 다룬다. Linux x64 게시 폴더의 모듈 DLL, 의존성 DLL 및 `.deps.json`을 확인했다. 실제 서비스 프로비저닝·배포·서비스 간 연결 검증이 남아 있다.
+.NET 10.0.401에서 Release 테스트 22/22건이 통과했다. 실제 Cloud Code SDK 타입을 통한 모듈 바인딩은 로컬 대역으로 검증했다. 같은 회차 조건과 고정 경합, 다섯 번째 발급 경합, 동일 요청 경합, 응답 유실과 회차 경계, 소유자 불일치, 저장 잠금·설정 누락, 손상된 레코드를 다룬다. 파싱 가능한 저장이라도 표현 가능한 날짜 범위를 벗어나거나 같은 회차의 확정 조건이 달라지면 `AuthorityUnavailable`로 안전하게 중단한다. Linux x64 게시 폴더의 모듈 DLL, 의존성 DLL 및 `.deps.json`을 확인했다. 실제 서비스 프로비저닝·배포·서비스 간 연결 검증이 남아 있다.
