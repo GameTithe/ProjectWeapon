@@ -59,13 +59,15 @@ namespace ProjectWeapon.DpsQA.Tests
             DpsQaReport repeat = DpsQaRunner.Measure(settings, Origin, Dummy);
             Assert.That(repeat.DetailedLog(), Is.EqualTo(first.DetailedLog()));
             Assert.That(first.Conditions, Does.Contain("first offsets 350, 100, 50ms"));
-            CollectionAssert.AreEqual(new[] { 3, 1, 1, 1, 1 }, first.Grades.Select(grade => grade.SampleCount));
+            CollectionAssert.AreEqual(new[] { 4, 1, 1, 1, 1 }, first.Grades.Select(grade => grade.SampleCount));
             Assert.That(first.Weapons.Count(weapon => weapon.Source.StartsWith("baseline:", StringComparison.Ordinal)),
-                Is.EqualTo(3));
+                Is.EqualTo(4));
             Assert.That(first.Weapons.All(weapon => weapon.BasicHitsPerMode > 1 && weapon.SkillHits == 18), Is.True);
             Assert.That(first.Weapons.All(weapon => Math.Abs(weapon.CombinedDps - weapon.BasicDps - 4) < 0.00001),
                 Is.True);
-            Assert.That(first.Grades[0].BasicDps, Is.EqualTo(10.2777778).Within(0.00001));
+            Assert.That(first.Grades[0].BasicDps, Is.EqualTo(9.5416667).Within(0.00001));
+            Assert.That(first.Weapons.Single(weapon => weapon.Source == "baseline:hunting_bow").BasicHitsPerMode,
+                Is.EqualTo(33));
             Assert.That(first.Grades[4].BasicDps, Is.EqualTo(32));
             var alternative = Object.Instantiate(settings);
             try
@@ -79,6 +81,32 @@ namespace ProjectWeapon.DpsQA.Tests
             finally
             {
                 Object.DestroyImmediate(alternative);
+            }
+        }
+
+        [Test]
+        public void BasicArrowCountsItsContactOnlyInsideTheMeasurementWindow()
+        {
+            var settings = Object.Instantiate(Settings());
+            try
+            {
+                var data = new SerializedObject(settings);
+                data.FindProperty("trials").intValue = 1;
+                data.FindProperty("windowMilliseconds").intValue = 100;
+                data.ApplyModifiedPropertiesWithoutUndo();
+                DpsQaReport beforeContact = DpsQaRunner.Measure(settings, Origin, Dummy);
+                Assert.That(beforeContact.Weapons.Single(weapon => weapon.Source == "baseline:hunting_bow")
+                    .BasicHitsPerMode, Is.Zero);
+
+                data.FindProperty("windowMilliseconds").intValue = 150;
+                data.ApplyModifiedPropertiesWithoutUndo();
+                DpsQaReport afterContact = DpsQaRunner.Measure(settings, Origin, Dummy);
+                Assert.That(afterContact.Weapons.Single(weapon => weapon.Source == "baseline:hunting_bow")
+                    .BasicHitsPerMode, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(settings);
             }
         }
 

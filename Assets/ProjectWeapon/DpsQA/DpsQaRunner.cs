@@ -44,7 +44,8 @@ namespace ProjectWeapon.DpsQA
             {
                 WeaponDefinition weapon = weapons[index];
                 if (weapon.BasicAttack is not BasicAttackPattern attack
-                    || (attack is not MeleeSlashPattern && attack is not SpearThrustPattern && attack is not CircularStrikePattern)
+                    || (attack is not MeleeSlashPattern && attack is not SpearThrustPattern
+                        && attack is not CircularStrikePattern && attack is not SingleArrowPattern)
                     || weapon.Skill != sharedSkill || weapon.Skill is not ManualSkillPattern skill || skill.AimKind != ManualSkillAimKind.Enemy)
                     throw new InvalidOperationException($"Unsupported QA attack or skill on {weapon.Id.Value}.");
 
@@ -81,6 +82,7 @@ namespace ProjectWeapon.DpsQA
             private readonly WeaponDefinition weapon;
             private readonly TrialResult result = new TrialResult();
             private readonly HashSet<Guid> applications = new HashSet<Guid>();
+            private readonly List<(ProjectileLifecycle Arrow, TimeSpan StartedAt, TimeSpan ContactDelay)> arrows = new();
             private TimeSpan clock;
 
             public Trial(DpsQaSettings settings, WorldPoint2D origin, TargetCandidate target, WeaponDefinition weapon)
@@ -109,6 +111,7 @@ namespace ProjectWeapon.DpsQA
                 {
                     clock = TimeSpan.FromMilliseconds(millisecond);
                     scheduler.TryAttack(clock, origin, weapon, targets);
+                    AdvanceArrows();
                     if (withSkill && millisecond >= skillOffset
                         && (millisecond - skillOffset) % settings.SkillPeriodMilliseconds == 0)
                         skill.TryActivate(Guid.NewGuid(), instance.Id, clock, origin, ManualSkillAim.AtEnemy(Dummy));
@@ -132,8 +135,37 @@ namespace ProjectWeapon.DpsQA
                         foreach (DamageRequest hit in strike!.Hits)
                             Apply(hit, skill: false);
                         return true;
+                    case SingleArrowPattern bow:
+                        var arrow = new ProjectileLifecycle();
+                        if (!bow.TryLaunch(request, application, Caster, arrow))
+                            return false;
+                        double speed = Math.Sqrt(arrow.Velocity.SquaredDistanceTo(default));
+                        double distance = Math.Sqrt(request.Origin.SquaredDistanceTo(request.Target.Position));
+                        double flightSeconds = distance == 0 ? 0 : distance / speed;
+                        TimeSpan contactDelay = flightSeconds >= arrow.Lifetime.TotalSeconds
+                            ? arrow.Lifetime : TimeSpan.FromSeconds(flightSeconds);
+                        arrows.Add((arrow, request.StartedAt, contactDelay));
+                        return true;
                     default:
                         return false;
+                }
+            }
+
+            private void AdvanceArrows()
+            {
+                for (int index = arrows.Count - 1; index >= 0; index--)
+                {
+                    var flight = arrows[index];
+                    TimeSpan elapsed = clock - flight.StartedAt;
+                    ProjectileLifecycle arrow = flight.Arrow;
+                    if (elapsed >= flight.ContactDelay && flight.ContactDelay < arrow.Lifetime
+                        && arrow.ContactTarget(arrow.ApplicationId, flight.ContactDelay, targets[0]) is DamageRequest impact)
+                        Apply(impact, skill: false);
+                    else
+                        arrow.Advance(arrow.ApplicationId, elapsed);
+
+                    if (arrow.Phase != ProjectilePhase.Active)
+                        arrows.RemoveAt(index);
                 }
             }
 
