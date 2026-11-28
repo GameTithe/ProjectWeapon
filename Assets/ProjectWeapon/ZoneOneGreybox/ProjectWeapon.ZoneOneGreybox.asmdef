@@ -4,20 +4,24 @@
     "references": [
         "ProjectWeapon.AutoAttack",
         "ProjectWeapon.Chest",
+        "ProjectWeapon.Enemies.Boss",
         "ProjectWeapon.Enemies.Melee",
         "ProjectWeapon.Enemies.Ranged",
         "ProjectWeapon.Inventory",
         "ProjectWeapon.Loot",
+        "ProjectWeapon.MaceSkill",
         "ProjectWeapon.ManualSkill",
         "ProjectWeapon.Movement",
         "ProjectWeapon.OldSwordSkill",
         "ProjectWeapon.Player",
         "ProjectWeapon.WeaponSwitch",
         "ProjectWeapon.Weapons",
+        "ProjectWeapon.WoodenSpearSkill",
         "ProjectWeapon.Combat",
         "ProjectWeapon.Dungeon",
         "ProjectWeapon.Extraction",
         "ProjectWeapon.Run",
+        "ProjectWeapon.WandererArt",
         "Unity.InputSystem"
     ]
 }

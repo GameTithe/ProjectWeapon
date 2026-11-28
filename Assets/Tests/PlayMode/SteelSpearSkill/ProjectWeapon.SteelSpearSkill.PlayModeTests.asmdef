@@ -1,0 +1,19 @@
+{
+    "name": "ProjectWeapon.SteelSpearSkill.PlayModeTests",
+    "rootNamespace": "ProjectWeapon.SteelSpearSkill.Tests",
+    "references": [
+        "ProjectWeapon.SteelSpearSkill",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

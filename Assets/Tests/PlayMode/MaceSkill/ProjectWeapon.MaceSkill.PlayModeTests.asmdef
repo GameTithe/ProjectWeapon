@@ -1,0 +1,18 @@
+{
+    "name": "ProjectWeapon.MaceSkill.PlayModeTests",
+    "rootNamespace": "ProjectWeapon.MaceSkill.Tests",
+    "references": [
+        "ProjectWeapon.CombatHud",
+        "ProjectWeapon.Enemies.Boss",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.SortieLoop",
+        "ProjectWeapon.Weapons",
+        "ProjectWeapon.ZoneOneGreybox",
+        "Unity.InputSystem",
+        "UnityEngine.UI"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}
