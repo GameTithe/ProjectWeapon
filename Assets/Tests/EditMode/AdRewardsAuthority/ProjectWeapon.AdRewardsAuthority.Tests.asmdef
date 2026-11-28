@@ -1,0 +1,13 @@
+{
+    "name": "ProjectWeapon.AdRewardsAuthority.Tests",
+    "rootNamespace": "ProjectWeapon.AdRewards.Tests",
+    "references": [
+        "ProjectWeapon.Ad",
+        "ProjectWeapon.AdRewardsAuthority",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.WeaponDraw",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
