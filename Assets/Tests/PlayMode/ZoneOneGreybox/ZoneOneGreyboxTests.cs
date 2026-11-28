@@ -5,6 +5,8 @@ using System.Collections;
 using System.Linq;
 using NUnit.Framework;
 using ProjectWeapon.Run;
+using ProjectWeapon.Inventory;
+using ProjectWeapon.Loot;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -106,6 +108,103 @@ namespace ProjectWeapon.ZoneOneGreybox.Tests
             Assert.That(preview.Phase, Is.EqualTo(RunPhase.Extracting));
             Assert.That(preview.TryStartExtraction(), Is.False);
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DesignatedEncounterSupportsCombatPickupAndSuccessfulReturn()
+        {
+            ZoneOneEncounter encounter = preview.Encounter;
+            Assert.That(encounter, Is.Not.Null);
+            Assert.That(encounter.Melee.transform.position, Is.EqualTo(new Vector3(4.5f, 5.5f, 0f)));
+            Assert.That(encounter.Ranged.transform.position, Is.EqualTo(new Vector3(11.5f, 6.4f, 0f)));
+            Assert.That(encounter.Chest.transform.position, Is.EqualTo(new Vector3(10.5f, 2.5f, 0f)));
+            Assert.That(preview.Zone.GetRewardProbabilityBasisPoints(1), Is.EqualTo(8500));
+            Assert.That(preview.Zone.GetRewardProbabilityBasisPoints(2), Is.EqualTo(1500));
+            Assert.That(encounter.TryOpenChest(), Is.False);
+            Assert.That(encounter.Collected, Is.Empty);
+
+            preview.Player.position = new Vector2(3.5f, 5.5f);
+            var meleeWarning = encounter.Melee.GetComponentInChildren<LineRenderer>(true);
+            bool sawMeleeWarning = false;
+            float by = Time.time + 3f;
+            while (encounter.Melee.Brain.CurrentHealth > 0 && Time.time < by)
+            {
+                yield return null;
+                sawMeleeWarning |= meleeWarning.enabled;
+            }
+            Assert.That(sawMeleeWarning, Is.True);
+            Assert.That(encounter.Melee.Brain.CurrentHealth, Is.Zero);
+
+            preview.Player.position = new Vector2(9.4f, 6.4f);
+            var rangedWarning = encounter.Ranged.GetComponentInChildren<LineRenderer>(true);
+            by = Time.time + 1.5f;
+            while (!rangedWarning.enabled && Time.time < by)
+                yield return null;
+            Assert.That(rangedWarning.enabled, Is.True);
+            Assert.That(rangedWarning.positionCount, Is.EqualTo(4));
+            int previousHealth = encounter.PlayerHealth;
+            by = Time.time + 1.5f;
+            while (encounter.PlayerHealth == previousHealth && Time.time < by)
+                yield return null;
+            Assert.That(encounter.PlayerHealth, Is.LessThan(previousHealth));
+
+            preview.Player.position = new Vector2(10.55f, 6.4f);
+            by = Time.time + 3f;
+            while (encounter.Ranged.Brain.CurrentHealth > 0 && Time.time < by)
+                yield return null;
+            Assert.That(encounter.Ranged.Brain.CurrentHealth, Is.Zero);
+            Assert.That(encounter.PlayerHealth, Is.GreaterThan(0));
+
+            preview.Player.position = new Vector2(10.5f, 2.5f);
+            SendKeyboard(Key.E);
+            yield return null;
+            SendKeyboard();
+            Assert.That(encounter.Chest.IsOpen, Is.True);
+            Assert.That(encounter.TryOpenChest(), Is.False);
+
+            var drop = scene.GetRootGameObjects().Select(root => root.GetComponent<WorldLoot>())
+                .Single(item => item != null)!;
+            preview.Player.position = drop.transform.position;
+            for (int ticks = 0; ticks < 4 && encounter.Collected.Count == 0; ticks++)
+            {
+                yield return new WaitForFixedUpdate();
+                Assert.That(physics.Simulate(Time.fixedDeltaTime), Is.True);
+            }
+            Assert.That(encounter.Collected.Single().DefinitionId.Value, Is.EqualTo("wooden_spear"));
+            Assert.That(encounter.Collected.Single().Id, Is.EqualTo(drop.Item!.Id));
+            Assert.That(encounter.Collected.Single().Location.Kind, Is.EqualTo(WeaponLocationKind.Carried));
+            Assert.That(drop.gameObject.activeSelf, Is.False);
+
+            preview.Player.position = preview.ExtractionCenter;
+            SendKeyboard(Key.E);
+            yield return null;
+            SendKeyboard();
+            Assert.That(preview.Phase, Is.EqualTo(RunPhase.Extracting));
+            by = Time.time + 4f;
+            while (preview.Phase == RunPhase.Extracting && Time.time < by)
+                yield return null;
+            Assert.That(preview.Phase, Is.EqualTo(RunPhase.Succeeded));
+        }
+
+        [UnityTest]
+        public IEnumerator RangedHitCancelsAnInProgressReturnBeforeThePlayerCanOpenTheChestAgain()
+        {
+            ZoneOneEncounter encounter = preview.Encounter;
+            preview.Player.position = preview.ExtractionCenter;
+            var warning = encounter.Ranged.GetComponentInChildren<LineRenderer>(true);
+            float by = Time.time + 1.5f;
+            while (!warning.enabled && Time.time < by)
+                yield return null;
+            Assert.That(warning.enabled, Is.True);
+            Assert.That(preview.TryStartExtraction(), Is.True);
+            Assert.That(preview.Phase, Is.EqualTo(RunPhase.Extracting));
+            int hp = encounter.PlayerHealth;
+            by = Time.time + 1.5f;
+            while (encounter.PlayerHealth == hp && Time.time < by)
+                yield return null;
+            Assert.That(encounter.PlayerHealth, Is.LessThan(hp));
+            Assert.That(preview.Phase, Is.EqualTo(RunPhase.Exploring));
+            Assert.That(encounter.TryOpenChest(), Is.False);
         }
 
         private IEnumerator Drive(Key key, int steps)
