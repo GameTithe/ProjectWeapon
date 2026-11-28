@@ -31,6 +31,8 @@ namespace ProjectWeapon.LootUI
         private bool dismissedByInventory;
         private bool listening;
 
+        public bool IsOpen => active != null;
+
         public void Initialize(LootPickupTrigger trigger, WeaponCatalog? catalog, TMP_FontAsset font)
         {
             if (!trigger)
