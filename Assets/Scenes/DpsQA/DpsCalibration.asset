@@ -1,0 +1,270 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-7930073023659909582
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 967cedc84ea446948ba8bcd46a4bb458, type: 3}
+  m_Name: old_sword baseline
+  m_EditorClassIdentifier: ProjectWeapon.Weapons::ProjectWeapon.Weapons.WeaponDefinition
+  definitionId: qa_old_sword
+  displayName: old_sword baseline
+  grade: 1
+  kind: 1
+  prototypeBasicAttackPattern:
+  prototypeSkillPattern:
+  basicAttack: {fileID: 11400000, guid: e8f37868ab2142469fe1030e0077c585, type: 2}
+  skill: {fileID: -1349252501587260893}
+  attackVfx: {fileID: 0}
+--- !u!114 &-6620201609764747210
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 967cedc84ea446948ba8bcd46a4bb458, type: 3}
+  m_Name: mace baseline
+  m_EditorClassIdentifier: ProjectWeapon.Weapons::ProjectWeapon.Weapons.WeaponDefinition
+  definitionId: qa_mace
+  displayName: mace baseline
+  grade: 1
+  kind: 4
+  prototypeBasicAttackPattern:
+  prototypeSkillPattern:
+  basicAttack: {fileID: 11400000, guid: 7e3621a795e64d4f8c1dcf6e37f127d0, type: 2}
+  skill: {fileID: -1349252501587260893}
+  attackVfx: {fileID: 0}
+--- !u!114 &-6572220107847046283
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 967cedc84ea446948ba8bcd46a4bb458, type: 3}
+  m_Name: Grade 4 Calibration
+  m_EditorClassIdentifier: ProjectWeapon.Weapons::ProjectWeapon.Weapons.WeaponDefinition
+  definitionId: qa_calibration_g4
+  displayName: Grade 4 Calibration
+  grade: 4
+  kind: 4
+  prototypeBasicAttackPattern:
+  prototypeSkillPattern:
+  basicAttack: {fileID: -4240287765797701035}
+  skill: {fileID: -1349252501587260893}
+  attackVfx: {fileID: 0}
+--- !u!114 &-5720340022199732699
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 967cedc84ea446948ba8bcd46a4bb458, type: 3}
+  m_Name: Grade 2 Calibration
+  m_EditorClassIdentifier: ProjectWeapon.Weapons::ProjectWeapon.Weapons.WeaponDefinition
+  definitionId: qa_calibration_g2
+  displayName: Grade 2 Calibration
+  grade: 2
+  kind: 4
+  prototypeBasicAttackPattern:
+  prototypeSkillPattern:
+  basicAttack: {fileID: 7635006797871259103}
+  skill: {fileID: -1349252501587260893}
+  attackVfx: {fileID: 0}
+--- !u!114 &-5158637887509921305
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 641735a0cf694af1d87f1a111d5ababb, type: 3}
+  m_Name: DPS QA Catalog
+  m_EditorClassIdentifier: ProjectWeapon.Weapons::ProjectWeapon.Weapons.WeaponCatalog
+  definitions:
+  - {fileID: -7930073023659909582}
+  - {fileID: 1229721073296943891}
+  - {fileID: -6620201609764747210}
+  - {fileID: -5720340022199732699}
+  - {fileID: 7311855088395268604}
+  - {fileID: -6572220107847046283}
+  - {fileID: 7176366980034591912}
+--- !u!114 &-4240287765797701035
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f61ba70c6db4c9da6b6d6355ecfda44, type: 3}
+  m_Name: Grade 4 Circular Calibration
+  m_EditorClassIdentifier: ProjectWeapon.AutoAttack::ProjectWeapon.AutoAttack.CircularStrikePattern
+  range: 2
+  cooldownMilliseconds: 800
+  damage: 19
+--- !u!114 &-1349252501587260893
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0134cde1ed14bf645b9e834d8e088f72, type: 3}
+  m_Name: Fixed QA Skill
+  m_EditorClassIdentifier: ProjectWeapon.ManualSkill::ProjectWeapon.ManualSkill.ManualSkillPattern
+  aimKind: 3
+  maxAimDistance: 4
+  sharedCooldownMilliseconds: 800
+  weaponCooldownMilliseconds: 1500
+  failurePolicy: 0
+--- !u!114 &-485868599470911329
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f61ba70c6db4c9da6b6d6355ecfda44, type: 3}
+  m_Name: Grade 3 Circular Calibration
+  m_EditorClassIdentifier: ProjectWeapon.AutoAttack::ProjectWeapon.AutoAttack.CircularStrikePattern
+  range: 2
+  cooldownMilliseconds: 850
+  damage: 16
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cdf84c9c0beaf93459bd2bc4e2a61dde, type: 3}
+  m_Name: DpsCalibration
+  m_EditorClassIdentifier: ProjectWeapon.DpsQA::ProjectWeapon.DpsQA.DpsQaSettings
+  weapons: {fileID: -5158637887509921305}
+  baselineWeapons:
+  - {fileID: 11400000, guid: abee15fdc1098a14b880d7cf8829853f, type: 2}
+  - {fileID: 11400000, guid: c270719e2f0210949b1fa656876f6246, type: 2}
+  - {fileID: 11400000, guid: 01ca09136bd11ab4194164a1674d6f4c, type: 2}
+  seed: 40
+  trials: 3
+  windowMilliseconds: 12000
+  stepMilliseconds: 50
+  skillPeriodMilliseconds: 2000
+  skillOffsetSlots: 8
+  skillDamage: 8
+--- !u!114 &1229721073296943891
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 967cedc84ea446948ba8bcd46a4bb458, type: 3}
+  m_Name: wooden_spear baseline
+  m_EditorClassIdentifier: ProjectWeapon.Weapons::ProjectWeapon.Weapons.WeaponDefinition
+  definitionId: qa_wooden_spear
+  displayName: wooden_spear baseline
+  grade: 1
+  kind: 2
+  prototypeBasicAttackPattern:
+  prototypeSkillPattern:
+  basicAttack: {fileID: 11400000, guid: 04372d9c30fe4a7f93967a4646467846, type: 2}
+  skill: {fileID: -1349252501587260893}
+  attackVfx: {fileID: 0}
+--- !u!114 &5677360243544653325
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f61ba70c6db4c9da6b6d6355ecfda44, type: 3}
+  m_Name: Grade 5 Circular Calibration
+  m_EditorClassIdentifier: ProjectWeapon.AutoAttack::ProjectWeapon.AutoAttack.CircularStrikePattern
+  range: 2
+  cooldownMilliseconds: 750
+  damage: 24
+--- !u!114 &7176366980034591912
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 967cedc84ea446948ba8bcd46a4bb458, type: 3}
+  m_Name: Grade 5 Calibration
+  m_EditorClassIdentifier: ProjectWeapon.Weapons::ProjectWeapon.Weapons.WeaponDefinition
+  definitionId: qa_calibration_g5
+  displayName: Grade 5 Calibration
+  grade: 5
+  kind: 4
+  prototypeBasicAttackPattern:
+  prototypeSkillPattern:
+  basicAttack: {fileID: 5677360243544653325}
+  skill: {fileID: -1349252501587260893}
+  attackVfx: {fileID: 0}
+--- !u!114 &7311855088395268604
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 967cedc84ea446948ba8bcd46a4bb458, type: 3}
+  m_Name: Grade 3 Calibration
+  m_EditorClassIdentifier: ProjectWeapon.Weapons::ProjectWeapon.Weapons.WeaponDefinition
+  definitionId: qa_calibration_g3
+  displayName: Grade 3 Calibration
+  grade: 3
+  kind: 4
+  prototypeBasicAttackPattern:
+  prototypeSkillPattern:
+  basicAttack: {fileID: -485868599470911329}
+  skill: {fileID: -1349252501587260893}
+  attackVfx: {fileID: 0}
+--- !u!114 &7635006797871259103
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f61ba70c6db4c9da6b6d6355ecfda44, type: 3}
+  m_Name: Grade 2 Circular Calibration
+  m_EditorClassIdentifier: ProjectWeapon.AutoAttack::ProjectWeapon.AutoAttack.CircularStrikePattern
+  range: 2
+  cooldownMilliseconds: 900
+  damage: 13

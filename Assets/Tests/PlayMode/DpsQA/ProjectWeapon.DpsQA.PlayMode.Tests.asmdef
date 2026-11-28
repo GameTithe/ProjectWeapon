@@ -1,0 +1,11 @@
+{
+    "name": "ProjectWeapon.DpsQA.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.DpsQA.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.DpsQA",
+        "ProjectWeapon.Weapons",
+        "Unity.TextMeshPro"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

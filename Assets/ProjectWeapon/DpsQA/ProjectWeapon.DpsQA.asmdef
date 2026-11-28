@@ -1,0 +1,14 @@
+{
+    "name": "ProjectWeapon.DpsQA",
+    "rootNamespace": "ProjectWeapon.DpsQA",
+    "references": [
+        "ProjectWeapon.AutoAttack",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons",
+        "Unity.TextMeshPro"
+    ]
+}
