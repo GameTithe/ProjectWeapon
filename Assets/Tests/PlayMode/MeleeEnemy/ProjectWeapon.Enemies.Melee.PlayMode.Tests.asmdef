@@ -1,0 +1,6 @@
+{
+    "name": "ProjectWeapon.Enemies.Melee.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.Enemies.Tests",
+    "references": ["ProjectWeapon.Enemies.Melee", "ProjectWeapon.Combat"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
