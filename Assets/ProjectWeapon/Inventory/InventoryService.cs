@@ -70,6 +70,9 @@ namespace ProjectWeapon.Inventory
             WeaponInstanceId loanId = WeaponInstanceId.ForStarterLoan(runId);
             lock (sync)
             {
+                if (startingSortie)
+                    return new StarterLoanResult(StarterLoanStatus.InventoryNotPrepared);
+
                 if (instances.TryGetValue(loanId, out WeaponInstance existing))
                 {
                     if (!existing.IsLoaned || !existing.DefinitionId.Equals(StarterLoanDefinition))
@@ -274,7 +277,7 @@ namespace ProjectWeapon.Inventory
                     }
                 }
 
-                if (hasCarried || !IsValidSortieLoadout(equipped))
+                if (hasCarried || !IsValidSortieLoadout(runId, equipped))
                     return new SortieStartResult(SortieStartStatus.LoadoutNotReady);
 
                 equipped.Sort((first, second) =>
@@ -303,7 +306,7 @@ namespace ProjectWeapon.Inventory
             }
         }
 
-        private static bool IsValidSortieLoadout(List<WeaponInstance> equipped)
+        private static bool IsValidSortieLoadout(Guid runId, List<WeaponInstance> equipped)
         {
             if (equipped.Count == 0)
                 return false;
@@ -311,8 +314,12 @@ namespace ProjectWeapon.Inventory
             foreach (WeaponInstance instance in equipped)
             {
                 int slot = instance.Location.SlotIndex.GetValueOrDefault();
-                if (slot >= InventorySlotCapacity.Prototype.EquippedSlots
-                    || (instance.IsLoaned && (equipped.Count != 1 || slot != 0)))
+                if (slot >= InventorySlotCapacity.Prototype.EquippedSlots)
+                    return false;
+
+                if (instance.IsLoaned && (equipped.Count != 1 || slot != 0
+                    || !instance.DefinitionId.Equals(StarterLoanDefinition)
+                    || instance.Id != WeaponInstanceId.ForStarterLoan(runId)))
                     return false;
             }
 

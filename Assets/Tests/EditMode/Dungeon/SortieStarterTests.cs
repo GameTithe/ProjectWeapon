@@ -54,15 +54,38 @@ namespace ProjectWeapon.Dungeon.Tests
         }
 
         [Test]
-        public void LoanProvenanceIsPreservedWhenPreparedAloneInTheFirstSlot()
+        public void LoanProvenanceAndInstanceArePreservedWhenPreparedForThisRun()
         {
-            WeaponInstance loan = WeaponInstance.Create(Sword, WeaponProvenance.Loan, WeaponLocation.Equipped(0));
-            var town = new InventoryService(new[] { loan });
+            RunId runId = RunId.New();
+            var town = new InventoryService(Array.Empty<WeaponInstance>());
+            StarterLoanResult issued = town.PrepareStarterLoan(runId.Value);
+            Assert.That(issued.Status, Is.EqualTo(StarterLoanStatus.Issued));
 
-            SortieStartResult started = new SortieStarter(town, countdown).TryStart(1);
+            SortieStartResult started = new SortieStarter(town, countdown).TryStart(runId, 1);
             Assert.That(started.Status, Is.EqualTo(SortieStartStatus.Started));
-            Assert.That(started.Manifest!.Equipped.Single().IsLoaned, Is.True);
+            Assert.That(started.Manifest!.Equipped.Single(), Is.SameAs(issued.Loan));
             Assert.That(town.Snapshot().Single().IsLoaned, Is.True);
+        }
+
+        [Test]
+        public void PreparedLoanFromAnotherRunOrAnotherDefinitionCannotStartASortie()
+        {
+            RunId preparedFor = RunId.New();
+            var town = new InventoryService(Array.Empty<WeaponInstance>());
+            StarterLoanResult issued = town.PrepareStarterLoan(preparedFor.Value);
+            WeaponInstance loan = issued.Loan!;
+            var starter = new SortieStarter(town, countdown);
+
+            Assert.That(starter.TryStart(RunId.New(), 1).Status, Is.EqualTo(SortieStartStatus.LoadoutNotReady));
+            Assert.That(town.Snapshot().Single(), Is.SameAs(loan));
+
+            WeaponInstance incorrect = WeaponInstance.Rehydrate(loan.Id, new WeaponDefinitionId("mace"),
+                WeaponProvenance.Loan, WeaponLocation.Equipped(0));
+            var incorrectTown = new InventoryService(new[] { incorrect });
+            Assert.That(new SortieStarter(incorrectTown, countdown).TryStart(preparedFor, 1).Status,
+                Is.EqualTo(SortieStartStatus.LoadoutNotReady));
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Town));
+            Assert.That(starter.TryStart(preparedFor, 1).Status, Is.EqualTo(SortieStartStatus.Started));
         }
 
         [Test]
