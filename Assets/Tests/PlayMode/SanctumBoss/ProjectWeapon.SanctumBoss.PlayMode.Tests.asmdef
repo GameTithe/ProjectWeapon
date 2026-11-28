@@ -1,0 +1,12 @@
+{
+    "name": "ProjectWeapon.SanctumBoss.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.Zone5Sanctum.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Zone5Sanctum",
+        "Unity.InputSystem"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
