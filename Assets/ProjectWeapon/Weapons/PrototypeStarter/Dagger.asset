@@ -19,5 +19,5 @@ MonoBehaviour:
   prototypeBasicAttackPattern: "\uBE60\uB978 \uC5F0\uC18D \uD0C0\uACA9"
   prototypeSkillPattern: "\uC21C\uAC04 \uC5F0\uC18D \uBCA0\uAE30"
   basicAttack: {fileID: 0}
-  skill: {fileID: 0}
+  skill: {fileID: 11400000, guid: b5d12ae2d6404e79ac6c609c1e7fafdb, type: 2}
   attackVfx: {fileID: 0}

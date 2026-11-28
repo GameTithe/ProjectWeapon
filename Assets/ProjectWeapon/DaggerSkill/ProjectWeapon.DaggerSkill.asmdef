@@ -1,0 +1,12 @@
+{
+    "name": "ProjectWeapon.DaggerSkill",
+    "rootNamespace": "ProjectWeapon.DaggerSkill",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons"
+    ]
+}

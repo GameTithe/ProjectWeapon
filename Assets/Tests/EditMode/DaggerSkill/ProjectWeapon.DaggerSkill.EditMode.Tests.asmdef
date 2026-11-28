@@ -1,0 +1,20 @@
+{
+    "name": "ProjectWeapon.DaggerSkill.EditMode.Tests",
+    "rootNamespace": "ProjectWeapon.DaggerSkill.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.DaggerSkill",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}
