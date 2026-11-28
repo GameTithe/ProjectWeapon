@@ -54,7 +54,8 @@ namespace ProjectWeapon.Settlement
         }
 
         public RunSettlementCommit TrySettle(RunResult run, SortieManifest manifest,
-            IReadOnlyList<WeaponInstance> heldAtEnd, RunCoinAccumulator wallet, bool requireExactReservations = false)
+            IReadOnlyList<WeaponInstance> heldAtEnd, RunCoinAccumulator wallet, bool requireExactReservations = false,
+            Func<SaveSnapshot, int?>? proposeNextZone = null)
         {
             if (run == null)
                 throw new ArgumentNullException(nameof(run));
@@ -76,7 +77,10 @@ namespace ProjectWeapon.Settlement
                 return new RunSettlementCommit(RunSettlementStatus.RetryRequired, current);
 
             RunCoinSettlementProposal coins = wallet.ProposeSettlement(new WalletBalance(current.ConfirmedCoins), run);
-            SaveSnapshot candidate = BuildCandidate(current, run, manifest, heldAtEnd.ToArray(), coins);
+            int? unlockedZoneId = run.Succeeded ? proposeNextZone?.Invoke(current) : null;
+            if (unlockedZoneId is int nextZone && nextZone <= run.ZoneId)
+                throw new ArgumentException("An unlock must advance beyond the settled zone.", nameof(proposeNextZone));
+            SaveSnapshot candidate = BuildCandidate(current, run, manifest, heldAtEnd.ToArray(), coins, unlockedZoneId);
             SnapshotCommitResult write = commit(current.Revision, candidate);
             if (write.Status == SnapshotCommitStatus.Committed)
                 return new RunSettlementCommit(RunSettlementStatus.Committed, candidate, candidate.Settlements.Last());
@@ -87,7 +91,7 @@ namespace ProjectWeapon.Settlement
         }
 
         private static SaveSnapshot BuildCandidate(SaveSnapshot current, RunResult run, SortieManifest manifest,
-            IReadOnlyList<WeaponInstance> heldAtEnd, RunCoinSettlementProposal coins)
+            IReadOnlyList<WeaponInstance> heldAtEnd, RunCoinSettlementProposal coins, int? unlockedZoneId)
         {
             IReadOnlyList<WeaponInstance> nextWeapons;
             IReadOnlyList<CatalogSaveRecord> nextCatalog;
@@ -114,7 +118,8 @@ namespace ProjectWeapon.Settlement
                     milestones = milestones.Concat(unpaid).ToArray();
                 }
                 details = new RunSettlementDetails(coins, manifest, recovered.RecoveredWeapons,
-                    recovered.AbandonedPackedWeapons, recovered.ReturnedLoans, catalogRecoveries, warehouseCount);
+                    recovered.AbandonedPackedWeapons, recovered.ReturnedLoans, catalogRecoveries, warehouseCount,
+                    unlockedZoneId);
             }
             else
             {

@@ -1,0 +1,10 @@
+{
+    "name": "ProjectWeapon.ZoneProgression",
+    "rootNamespace": "ProjectWeapon.Dungeon",
+    "references": [
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement"
+    ]
+}

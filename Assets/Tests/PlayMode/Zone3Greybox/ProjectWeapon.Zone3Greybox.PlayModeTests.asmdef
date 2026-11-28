@@ -3,6 +3,7 @@
     "rootNamespace": "ProjectWeapon.Zone3Greybox.Tests",
     "references": [
         "ProjectWeapon.Zone3Forest",
+        "ProjectWeapon.ForestBoss",
         "ProjectWeapon.Chest",
         "ProjectWeapon.Enemies.Melee",
         "ProjectWeapon.Enemies.Ranged",

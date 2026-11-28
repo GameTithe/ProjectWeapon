@@ -1,0 +1,5 @@
+{
+    "name": "ProjectWeapon.EnemyCues",
+    "rootNamespace": "ProjectWeapon.Art.EnemyCues",
+    "references": ["ProjectWeapon.Combat"]
+}
