@@ -215,6 +215,31 @@ namespace ProjectWeapon.Dungeon.Tests
             }
         }
 
+        [Test]
+        public void RestoreAcceptsOnlyChronologicalAdjacentUnlocksFromSuccessfulReceipts()
+        {
+            const string itemized = "{\"version\":2,\"outcome\":\"Extracted\",\"returnedWeapons\":[]," +
+                "\"newWeapons\":[],\"lostWeapons\":[],\"loans\":[],\"newCatalogRecoveries\":[]";
+
+            var receipts = new List<SettlementSaveRecord>
+            {
+                new SettlementSaveRecord(Guid.NewGuid(), "legacy", "Extracted"),
+                new SettlementSaveRecord(Guid.NewGuid(), "itemized-before-unlocks", itemized + "}"),
+                new SettlementSaveRecord(Guid.NewGuid(), "out-of-order", itemized + ",\"unlockedZoneId\":3}"),
+                new SettlementSaveRecord(Guid.NewGuid(), "failed-return",
+                    itemized.Replace("Extracted", "Death") + ",\"unlockedZoneId\":2}"),
+            };
+
+            Assert.That(Restore().HighestUnlockedZoneId, Is.EqualTo(1));
+            receipts.Add(new SettlementSaveRecord(Guid.NewGuid(), "second-zone", itemized + ",\"unlockedZoneId\":2}"));
+            Assert.That(Restore().HighestUnlockedZoneId, Is.EqualTo(2));
+            receipts.Add(new SettlementSaveRecord(Guid.NewGuid(), "third-zone", itemized + ",\"unlockedZoneId\":3}"));
+            Assert.That(Restore().HighestUnlockedZoneId, Is.EqualTo(3));
+
+            ZoneProgression Restore() => ZoneProgression.Restore(catalog,
+                new SaveSnapshot(1, 0, Array.Empty<WeaponInstance>(), Array.Empty<CatalogSaveRecord>(), receipts));
+        }
+
         private Sortie Begin(int zone, bool seedSave = true, string? legacyResult = null, RunId? id = null)
         {
             string folder = Path.Combine(Path.GetTempPath(), "ProjectWeapon-KAN86-" + Guid.NewGuid().ToString("N"));

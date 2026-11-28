@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using ProjectWeapon.Run;
 using ProjectWeapon.Settlement;
+using ProjectWeapon.Save;
 
 namespace ProjectWeapon.Dungeon
 {
@@ -27,6 +28,23 @@ namespace ProjectWeapon.Dungeon
             }
         }
 
+        /// <summary>Replays only explicit adjacent unlocks from durable successful settlement receipts.</summary>
+        public static ZoneProgression Restore(ZoneCatalog catalog, SaveSnapshot? snapshot)
+        {
+            var progression = new ZoneProgression(catalog);
+            if (snapshot == null)
+                return progression;
+
+            foreach (SettlementSaveRecord receipt in snapshot.Settlements)
+            {
+                if (progression.highestIndex + 1 >= progression.zones.Length)
+                    break;
+                if (RunSettlementDetails.Read(receipt)?.UnlockedZoneId == progression.zones[progression.highestIndex + 1])
+                    progression.highestIndex++;
+            }
+            return progression;
+        }
+
         /// <summary>The highest unlocked zone ID accepted by this read model.</summary>
         public int HighestUnlockedZoneId => zones[highestIndex];
 
@@ -43,13 +61,23 @@ namespace ProjectWeapon.Dungeon
                 throw new ArgumentNullException(nameof(run));
             if (settlement == null)
                 throw new ArgumentNullException(nameof(settlement));
-            if (!run.Succeeded || boss == null || boss.RunId != run.RunId || boss.ZoneId != run.ZoneId
-                || boss.DefeatedAt > run.EffectiveAt || run.ZoneId != HighestUnlockedZoneId
-                || highestIndex + 1 == zones.Length || !IsCommittedSuccess(run, settlement))
+            if (!ProposeNextUnlock(run, boss).HasValue || !IsCommittedSuccess(run, settlement))
                 return null;
 
             highestIndex++;
             return HighestUnlockedZoneId;
+        }
+
+        /// <summary>Builds a proposal from confirmed same-run boss evidence for the pending save transaction.</summary>
+        public int? ProposeNextUnlock(RunResult run, BossDefeatEvidence? boss)
+        {
+            if (run == null)
+                throw new ArgumentNullException(nameof(run));
+            if (!run.Succeeded || boss == null || boss.RunId != run.RunId || boss.ZoneId != run.ZoneId
+                || boss.DefeatedAt > run.EffectiveAt || run.ZoneId != HighestUnlockedZoneId
+                || highestIndex + 1 >= zones.Length)
+                return null;
+            return zones[highestIndex + 1];
         }
 
         private static bool IsCommittedSuccess(RunResult run, RunSettlementCommit settlement)
