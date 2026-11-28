@@ -1,0 +1,21 @@
+{
+  "name": "ProjectWeapon.Settlement.Tests",
+  "rootNamespace": "ProjectWeapon.Settlement.Tests",
+  "references": [
+    "ProjectWeapon.Settlement",
+    "ProjectWeapon.Catalog",
+    "ProjectWeapon.FailedSettlement",
+    "ProjectWeapon.SuccessfulSettlement",
+    "ProjectWeapon.Inventory",
+    "ProjectWeapon.Run",
+    "ProjectWeapon.Save",
+    "ProjectWeapon.Wallet",
+    "ProjectWeapon.Weapons"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
