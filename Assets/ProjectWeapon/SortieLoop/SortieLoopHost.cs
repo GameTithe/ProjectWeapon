@@ -235,24 +235,13 @@ namespace ProjectWeapon.SortieLoop
             active = new ActiveSortie(run, countdown, Elapsed, start.Manifest);
             run.RunResultFinalized += FinishSortie;
             var recovery = new RunRecoveryCoordinator(run, countdown.Extraction, store, definitions.ContainsKey,
-                (snapshot, id) => HasReservation(snapshot, id, start.Manifest));
+                (snapshot, id) => id.Value == start.Manifest.RunId && start.Manifest.MatchesReservations(snapshot.Weapons));
             // Each room frame submits its observations synchronously before a Unity lifecycle callback can run.
             lifecycle.Initialize(recovery, () => Array.Empty<RunSignal>(), HasLiveWorld);
             return start;
         }
 
         private bool HasLiveWorld() => active is { } sortie && (!sortie.HasEntered || ActiveRoom != null);
-
-        private static bool HasReservation(SaveSnapshot snapshot, RunId id, SortieManifest manifest)
-        {
-            if (id.Value != manifest.RunId)
-                return false;
-
-            WeaponInstance[] reserved = snapshot.Weapons.Where(item => item.Location.ReservedRunId == id.Value).ToArray();
-            return reserved.Length == manifest.Equipped.Count && manifest.Equipped.All(item =>
-                reserved.Any(saved => saved.Id == item.Id && saved.DefinitionId.Equals(item.DefinitionId)
-                    && saved.Provenance == item.Provenance));
-        }
 
         private void HandleRecovery(RunRecoveryResult recovery)
         {
@@ -297,7 +286,7 @@ namespace ProjectWeapon.SortieLoop
 
         private void LoadRoom()
         {
-            if (active == null || lifecycle.IsGameplayBlocked || active.Result != null || active.HasEntered
+            if (active == null || lifecycle.IsGameplayBlocked || active.Result != null || active.Receipt != null || active.HasEntered
                 || roomLoad != null || roomScene.isLoaded || cleaningFailedLoad)
                 return;
 
@@ -340,7 +329,7 @@ namespace ProjectWeapon.SortieLoop
                     .SingleOrDefault(candidate => candidate != null);
                 if (room == null)
                     throw new InvalidOperationException("The loaded validation scene has no room host.");
-                if (returning || active.Result != null)
+                if (returning || active.Result != null || active.Receipt != null)
                     throw new InvalidOperationException("The reserved run ended before its room loaded.");
 
                 WeaponInstance equipped = active.Manifest.Equipped[0];
@@ -370,7 +359,7 @@ namespace ProjectWeapon.SortieLoop
 
         private void OfferRoomRetry()
         {
-            if (active == null || active.Result != null)
+            if (active == null || active.Result != null || active.Receipt != null)
                 return;
             if (lifecycle.IsGameplayBlocked)
                 return;
@@ -402,7 +391,7 @@ namespace ProjectWeapon.SortieLoop
 
         private void FinishSortie(RunResult result)
         {
-            if (active == null || active.Result != null || result.RunId != active.Run.CurrentRun?.Id)
+            if (active == null || active.Result != null || active.Receipt != null || result.RunId != active.Run.CurrentRun?.Id)
                 return;
 
             active.Result = result;
@@ -421,7 +410,7 @@ namespace ProjectWeapon.SortieLoop
             try
             {
                 commit = new RunSettlementCoordinator(store).TrySettle(result, active.Manifest, active.HeldAtEnd,
-                    active.Wallet);
+                    active.Wallet, requireExactReservations: true);
             }
             catch (IOException)
             {

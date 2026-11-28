@@ -500,6 +500,53 @@ namespace ProjectWeapon.SortieLoop.Tests
         }
 
         [UnityTest]
+        public IEnumerator OrdinaryTimeoutCannotSettleAgainstAnUnreservedEquippedWeapon()
+        {
+            yield return StartSortie(chooseSword: true);
+            Room room = host.ActiveRoom!;
+            RunSession session = room.Run.CurrentRun!;
+            SaveSnapshot reserved = store.Load()!;
+            SaveSnapshot changed = reserved.Next(reserved.ConfirmedCoins, weapons: reserved.Weapons.Select(item =>
+                item.Id == sword.Id ? WeaponInstance.Rehydrate(sword.Id, sword.DefinitionId, sword.Provenance,
+                    WeaponLocation.Equipped(0)) : item));
+            Assert.That(store.Commit(reserved.Revision, changed).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+
+            SetElapsed(session.Deadline);
+            yield return WaitUntilOrFail(() => room.Run.Result != null, "The run did not finalize.");
+            Assert.That(store.Load()!.Revision, Is.EqualTo(changed.Revision));
+            Assert.That(store.Load()!.Settlements, Is.Empty);
+            Assert.That(store.Load()!.Weapons.Single(item => item.Id == sword.Id).Location.Kind,
+                Is.EqualTo(WeaponLocationKind.Equipped));
+        }
+
+        [UnityTest]
+        public IEnumerator ExistingReceiptDuringRoomLoadPreventsEnteringTheSettledRun()
+        {
+            Click(ButtonNamed("Open Equipment"));
+            Click(WarehouseSwordButton());
+            Click(ButtonNamed("Confirm"));
+            Guid runId = host.ActiveManifest!.RunId;
+            Assert.That(host.ActiveRoom, Is.Null);
+
+            RunLifecycleRelay relay = host.GetComponent<RunLifecycleRelay>();
+            relay.SendMessage("OnApplicationPause", true);
+            SaveSnapshot reserved = store.Load()!;
+            var receipt = new SettlementSaveRecord(runId, "RunSettlement:" + runId,
+                nameof(RunEndReason.TimeExpired));
+            SaveSnapshot settled = reserved.Next(reserved.ConfirmedCoins,
+                weapons: reserved.Weapons.Where(item => item.Location.ReservedRunId != runId),
+                settlements: reserved.Settlements.Append(receipt));
+            Assert.That(store.Commit(reserved.Revision, settled).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+            relay.SendMessage("OnApplicationPause", false);
+
+            yield return null;
+            Assert.That(host.ActiveRoom, Is.Null);
+            yield return ReturnToLobby();
+            Assert.That(store.Load()!.Revision, Is.EqualTo(settled.Revision));
+            Assert.That(store.Load()!.Settlements.Single().RunId, Is.EqualTo(runId));
+        }
+
+        [UnityTest]
         public IEnumerator ColdLobbyKeepsUnverifiableReservationAndDisablesSortie()
         {
             yield return StartSortie(chooseSword: true);
