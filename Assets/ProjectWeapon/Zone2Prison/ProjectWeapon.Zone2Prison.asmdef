@@ -1,4 +1,4 @@
-﻿{
+{
     "name": "ProjectWeapon.Zone2Prison",
     "rootNamespace": "ProjectWeapon.Zone2Prison",
     "references": [
@@ -13,6 +13,7 @@
         "ProjectWeapon.Loot",
         "ProjectWeapon.Movement",
         "ProjectWeapon.Player",
+        "ProjectWeapon.PrisonGuard",
         "ProjectWeapon.Run",
         "ProjectWeapon.Weapons",
         "Unity.InputSystem"
