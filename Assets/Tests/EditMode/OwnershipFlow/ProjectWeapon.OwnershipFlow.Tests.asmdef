@@ -1,0 +1,22 @@
+{
+    "name": "ProjectWeapon.OwnershipFlow.Tests",
+    "rootNamespace": "ProjectWeapon.OwnershipFlow.Tests",
+    "references": [
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement",
+        "ProjectWeapon.Wallet",
+        "ProjectWeapon.Weapons",
+        "ProjectWeapon.WeaponSwitch",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": ["Editor"],
+    "overrideReferences": true,
+    "precompiledReferences": ["nunit.framework.dll"],
+    "autoReferenced": false,
+    "defineConstraints": ["UNITY_INCLUDE_TESTS"]
+}
