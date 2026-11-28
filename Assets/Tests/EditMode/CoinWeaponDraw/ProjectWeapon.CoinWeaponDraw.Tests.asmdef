@@ -2,6 +2,11 @@
   "name": "ProjectWeapon.CoinWeaponDraw.Tests",
   "rootNamespace": "ProjectWeapon.CoinWeaponDraw.Tests",
   "references": [
+    "ProjectWeapon.Catalog",
+    "ProjectWeapon.Dungeon",
+    "ProjectWeapon.Run",
+    "ProjectWeapon.Settlement",
+    "ProjectWeapon.Wallet",
     "ProjectWeapon.CoinWeaponDraw",
     "ProjectWeapon.Save",
     "ProjectWeapon.Inventory",
