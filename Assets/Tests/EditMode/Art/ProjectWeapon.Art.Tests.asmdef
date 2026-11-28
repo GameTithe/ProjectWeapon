@@ -1,0 +1,6 @@
+{
+    "name": "ProjectWeapon.Art.Tests",
+    "rootNamespace": "ProjectWeapon.Art.Tests",
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
