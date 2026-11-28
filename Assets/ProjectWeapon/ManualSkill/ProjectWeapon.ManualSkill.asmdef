@@ -1,0 +1,11 @@
+{
+    "name": "ProjectWeapon.ManualSkill",
+    "rootNamespace": "ProjectWeapon.ManualSkill",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons"
+    ]
+}
