@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 77a07d1a00a747ed94e37b3861c404d1, type: 3}
+  m_Name: TwinSwordsSequence
+  m_EditorClassIdentifier: ProjectWeapon.AutoAttack::ProjectWeapon.AutoAttack.TwinSwordSequencePattern
+  range: 1.75
+  cooldownMilliseconds: 760
+  leftDamage: 7
+  rightDamage: 9
+  strikeIntervalMilliseconds: 150
