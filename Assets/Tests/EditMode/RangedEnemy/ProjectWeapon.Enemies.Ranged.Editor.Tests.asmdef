@@ -1,0 +1,7 @@
+{
+    "name": "ProjectWeapon.Enemies.Ranged.Editor.Tests",
+    "rootNamespace": "ProjectWeapon.Enemies.Tests",
+    "references": ["ProjectWeapon.Enemies.Ranged", "ProjectWeapon.Combat"],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
