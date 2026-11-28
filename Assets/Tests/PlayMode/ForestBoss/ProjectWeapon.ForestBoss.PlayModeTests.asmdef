@@ -9,6 +9,7 @@
         "ProjectWeapon.Movement",
         "ProjectWeapon.Player",
         "ProjectWeapon.Run",
+        "ProjectWeapon.Zone3Forest",
         "Unity.InputSystem"
     ],
     "optionalUnityReferences": [

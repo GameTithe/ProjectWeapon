@@ -12,6 +12,7 @@ using ProjectWeapon.Extraction;
 using ProjectWeapon.Movement;
 using ProjectWeapon.Player;
 using ProjectWeapon.Run;
+using ProjectWeapon.Zone3Forest;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -62,8 +63,16 @@ namespace ProjectWeapon.ForestBoss.Tests
             keyboard = InputSystem.AddDevice<Keyboard>();
             now = TimeSpan.Zero;
 
-            yield return EditorSceneManager.LoadSceneAsyncInPlayMode(Layout,
-                new LoadSceneParameters(LoadSceneMode.Additive, LocalPhysicsMode.Physics2D));
+            SceneManager.sceneLoaded += IsolateMap;
+            try
+            {
+                yield return EditorSceneManager.LoadSceneAsyncInPlayMode(Layout,
+                    new LoadSceneParameters(LoadSceneMode.Additive, LocalPhysicsMode.Physics2D));
+            }
+            finally
+            {
+                SceneManager.sceneLoaded -= IsolateMap;
+            }
             scene = SceneManager.GetSceneByPath(Layout);
             Assert.That(scene.isLoaded, Is.True);
             physics = scene.GetPhysicsScene2D();
@@ -258,6 +267,17 @@ namespace ProjectWeapon.ForestBoss.Tests
 
         private T Find<T>() where T : Component
             => scene.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<T>()).Single();
+
+        private static void IsolateMap(Scene loaded, LoadSceneMode _)
+        {
+            if (loaded.path != Layout)
+                return;
+
+            Zone3ForestTrial trial = loaded.GetRootGameObjects().Select(root => root.GetComponent<Zone3ForestTrial>())
+                .Single(component => component != null);
+            trial.enabled = false;
+            trial.Boss.gameObject.SetActive(false);
+        }
 
         private void Pose(Vector2 actor, Vector2 target)
         {
