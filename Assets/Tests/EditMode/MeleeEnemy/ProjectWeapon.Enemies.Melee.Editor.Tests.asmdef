@@ -1,0 +1,7 @@
+{
+    "name": "ProjectWeapon.Enemies.Melee.Editor.Tests",
+    "rootNamespace": "ProjectWeapon.Enemies.Tests",
+    "references": ["ProjectWeapon.Enemies.Melee", "ProjectWeapon.Combat"],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
