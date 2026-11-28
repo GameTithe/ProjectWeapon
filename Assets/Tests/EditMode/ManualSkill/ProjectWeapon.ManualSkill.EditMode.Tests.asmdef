@@ -1,0 +1,14 @@
+{
+    "name": "ProjectWeapon.ManualSkill.EditMode.Tests",
+    "rootNamespace": "ProjectWeapon.ManualSkill.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

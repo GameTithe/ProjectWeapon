@@ -1,0 +1,14 @@
+{
+    "name": "ProjectWeapon.WeaponSwitch.PlayModeTests",
+    "rootNamespace": "ProjectWeapon.WeaponSwitch.Tests",
+    "references": [
+        "ProjectWeapon.AutoAttack",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Weapons",
+        "ProjectWeapon.WeaponSwitch",
+        "UnityEngine.UI"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
