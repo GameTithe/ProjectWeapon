@@ -1,0 +1,15 @@
+{
+    "name": "ProjectWeapon.RepeaterBowSkill.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.RepeaterBowSkill.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.RepeaterBowSkill",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

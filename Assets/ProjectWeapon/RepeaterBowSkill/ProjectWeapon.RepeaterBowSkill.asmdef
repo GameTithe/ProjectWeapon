@@ -1,0 +1,12 @@
+{
+    "name": "ProjectWeapon.RepeaterBowSkill",
+    "rootNamespace": "ProjectWeapon.RepeaterBowSkill",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons"
+    ]
+}
