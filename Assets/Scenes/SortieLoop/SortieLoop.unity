@@ -362,6 +362,9 @@ MonoBehaviour:
   retry: {fileID: 125055725}
   lobbyStatus: {fileID: 895496430}
   loading: {fileID: 1459998136}
+  combatCanvas: {fileID: 883877956}
+  combatJoystick: {fileID: 3268192157037158895, guid: dab0bdc29cf03ad41882c9376aad9d9f, type: 3}
+  combatMovementSettings: {fileID: 11400000, guid: 359d8b2c6d6b70f4a9252d641ee0d9c6, type: 2}
 --- !u!4 &213669772
 Transform:
   m_ObjectHideFlags: 0
