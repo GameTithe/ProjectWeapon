@@ -49,6 +49,7 @@ namespace ProjectWeapon.RepeaterBowSkill
     {
         private readonly RunState run;
         private readonly RunId runId;
+        private readonly TimeSpan deadline;
         private readonly PhysicsScene2D physicsScene;
         private readonly int targetLayers;
         private readonly int blockingLayers;
@@ -69,6 +70,7 @@ namespace ProjectWeapon.RepeaterBowSkill
                 throw new ArgumentException("An owning 2D physics scene is required.", nameof(physicsScene));
 
             runId = session.Id;
+            deadline = session.Deadline;
             observedThrough = session.StartedAt;
             this.physicsScene = physicsScene;
             this.targetLayers = targetLayers;
@@ -80,7 +82,7 @@ namespace ProjectWeapon.RepeaterBowSkill
 
         public IReadOnlyList<RepeaterBowArrowSnapshot> GetActiveArrows()
         {
-            if (!IsLive(observedThrough))
+            if (observedThrough >= deadline || !IsRunOpen())
                 return Array.Empty<RepeaterBowArrowSnapshot>();
 
             var snapshots = new RepeaterBowArrowSnapshot[flights.Count];
@@ -91,7 +93,7 @@ namespace ProjectWeapon.RepeaterBowSkill
 
         public bool TryStart(ManualSkillActivationRequest request)
         {
-            if (request.RunId != runId || request.StartedAt < observedThrough || !IsLive(request.StartedAt)
+            if (request.RunId != runId || request.StartedAt < observedThrough || request.StartedAt >= deadline || !IsRunOpen()
                 || run.Phase != RunPhase.Exploring || request.Pattern is not RepeaterBowVolleyPattern pattern
                 || !pattern.TryGetLifetime(request, out TimeSpan lifetime))
                 return false;
@@ -126,7 +128,7 @@ namespace ProjectWeapon.RepeaterBowSkill
         {
             if (impacts == null)
                 throw new ArgumentNullException(nameof(impacts));
-            if (!IsLive(now))
+            if (!IsRunOpen())
             {
                 flights.Clear();
                 if (now > observedThrough)
@@ -139,18 +141,23 @@ namespace ProjectWeapon.RepeaterBowSkill
             if (flights.Count == 0)
                 return;
 
+            bool reachesDeadline = now >= deadline;
+            TimeSpan sweepThrough = reachesDeadline ? deadline : now;
             frameImpacts.Clear();
             for (int i = 0; i < flights.Count; i++)
             {
                 Flight flight = flights[i];
-                if (AdvanceFlight(flight, now) is DamageRequest damage)
+                if (AdvanceFlight(flight, sweepThrough, reachesDeadline) is DamageRequest damage)
                 {
                     var impact = new RepeaterBowArrowImpact(runId, flight.WeaponInstanceId,
                         flight.LaunchedAt + flight.Projectile.Elapsed, damage);
                     frameImpacts.Add((impact, i));
                 }
             }
-            flights.RemoveAll(flight => flight.Projectile.Phase != ProjectilePhase.Active);
+            if (reachesDeadline)
+                flights.Clear();
+            else
+                flights.RemoveAll(flight => flight.Projectile.Phase != ProjectilePhase.Active);
             frameImpacts.Sort((left, right) =>
             {
                 int time = left.Impact.ContactAt.CompareTo(right.Impact.ContactAt);
@@ -160,10 +167,10 @@ namespace ProjectWeapon.RepeaterBowSkill
                 impacts.Add(entry.Impact);
         }
 
-        private DamageRequest? AdvanceFlight(Flight flight, TimeSpan now)
+        private DamageRequest? AdvanceFlight(Flight flight, TimeSpan sweepThrough, bool reachesDeadline)
         {
             ProjectileLifecycle projectile = flight.Projectile;
-            TimeSpan elapsed = now - flight.LaunchedAt;
+            TimeSpan elapsed = sweepThrough - flight.LaunchedAt;
             TimeSpan stepEnd = elapsed < projectile.Lifetime ? elapsed : projectile.Lifetime;
             TimeSpan step = stepEnd - projectile.Elapsed;
             if (step <= TimeSpan.Zero)
@@ -178,7 +185,8 @@ namespace ProjectWeapon.RepeaterBowSkill
                 var direction = new Vector2((float)(velocity.X / speed), (float)(velocity.Y / speed));
                 contacts.Clear();
                 physicsScene.Raycast(new Vector2(position.X, position.Y), direction, distance, filter, contacts);
-                if (FindFirstContact(flight.AttackerId, distance, stepEnd == projectile.Lifetime) is { } contact)
+                bool excludesEndpoint = reachesDeadline || stepEnd == projectile.Lifetime;
+                if (FindFirstContact(flight.AttackerId, distance, excludesEndpoint) is { } contact)
                 {
                     long hitTicks = (long)(step.Ticks * Math.Min(1d, contact.Distance / (double)distance));
                     TimeSpan hitAt = projectile.Elapsed + TimeSpan.FromTicks(hitTicks);
@@ -193,13 +201,13 @@ namespace ProjectWeapon.RepeaterBowSkill
             return null;
         }
 
-        private (float Distance, TargetCandidate? Target)? FindFirstContact(string attackerId, float distance, bool reachesLifetime)
+        private (float Distance, TargetCandidate? Target)? FindFirstContact(string attackerId, float distance, bool excludesEndpoint)
         {
             float nearestDistance = float.PositiveInfinity;
             TargetCandidate? nearest = null;
             foreach (RaycastHit2D hit in contacts)
             {
-                if (hit.distance > nearestDistance || (reachesLifetime && hit.distance >= distance))
+                if (hit.distance > nearestDistance || (excludesEndpoint && hit.distance >= distance))
                     break;
 
                 Collider2D collider = hit.collider;
@@ -221,8 +229,8 @@ namespace ProjectWeapon.RepeaterBowSkill
             return nearest.HasValue ? (nearestDistance, nearest) : null;
         }
 
-        private bool IsLive(TimeSpan now) => run.CurrentRun is { } session && session.Id == runId
-            && run.Result == null && now < session.Deadline && physicsScene.IsValid();
+        private bool IsRunOpen() => run.CurrentRun is { } session && session.Id == runId
+            && run.Result == null && physicsScene.IsValid();
 
         private readonly struct Flight
         {

@@ -222,11 +222,9 @@ namespace ProjectWeapon.RepeaterBowSkill.Tests
         }
 
         [Test]
-        public void AtTheRunDeadlineUnobservedArrowsCannotDamageOrReopen()
+        public void AtTheRunDeadlineStaleInputCannotReopenACompletedSweep()
         {
             Bind(duration: 1000);
-            Target("late", new Vector2(2, 0), new Vector2(.1f, 2));
-            SyncPhysics();
             Assert.That(Cast(100, Guid.NewGuid()), Is.EqualTo(ManualSkillActivationStatus.Started));
             Advance(1000);
             Assert.That(effect.GetActiveArrows(), Is.Empty);
@@ -236,6 +234,28 @@ namespace ProjectWeapon.RepeaterBowSkill.Tests
             now = Ms(1000);
             Assert.That(run.ProcessSignals(Array.Empty<RunSignal>())?.Reason, Is.EqualTo(RunEndReason.TimeExpired));
             Assert.That(Cast(1000, Guid.NewGuid()), Is.EqualTo(ManualSkillActivationStatus.Unavailable));
+        }
+
+        [TestCase(1000)]
+        [TestCase(1080)]
+        public void FirstDeadlineFrameReportsEarlierEffectiveContactAndExcludesExactEndpoint(int sampledAt)
+        {
+            Bind(duration: 1000);
+            Target("earlier", Polar(20, 2), new Vector2(.08f, .18f));
+            Target("deadline", new Vector2(3.375f, 0), new Vector2(.25f, .12f));
+            Target("after-deadline", Polar(-20, 3.5f), new Vector2(.08f, .18f));
+            SyncPhysics();
+
+            // At 13 units/s the center arrow reaches its target face at x=3.25 exactly at 1000ms.
+            Assert.That(Cast(750, Guid.NewGuid()), Is.EqualTo(ManualSkillActivationStatus.Started));
+            Advance(sampledAt);
+
+            Assert.That(run.Result, Is.Null);
+            Assert.That(impacts.Select(impact => impact.Damage.TargetId), Is.EqualTo(new[] { "earlier" }));
+            Assert.That(impacts[0].ContactAt, Is.GreaterThan(Ms(750)).And.LessThan(Ms(1000)));
+            Assert.That(effect.GetActiveArrows(), Is.Empty);
+            Advance(sampledAt + 1);
+            Assert.That(impacts, Has.Count.EqualTo(1));
         }
 
         [TestCase("hunting_bow", 2)]
