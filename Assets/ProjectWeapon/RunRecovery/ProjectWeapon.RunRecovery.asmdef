@@ -1,0 +1,11 @@
+{
+    "name": "ProjectWeapon.RunRecovery",
+    "rootNamespace": "ProjectWeapon.RunRecovery",
+    "references": [
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement",
+        "ProjectWeapon.Weapons"
+    ]
+}

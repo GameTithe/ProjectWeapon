@@ -52,6 +52,7 @@ namespace ProjectWeapon.ZoneOneGreybox
         private PlayerDodge? playerDodge;
         private WeaponDefinition? weapon;
         private Func<TimeSpan> readTime = null!;
+        private bool recoveryBlocked;
 
         public MeleeEnemyActor Melee => melee;
         public RangedEnemyActor Ranged => ranged;
@@ -94,6 +95,13 @@ namespace ProjectWeapon.ZoneOneGreybox
             Vector2 position = chest.transform.position;
             return CanCollect() && (player.position - position).sqrMagnitude <= ChestRadius * ChestRadius
                 && HasClearPath(player.position, position) && chest.TryOpen(out _);
+        }
+
+        internal void SetRecoveryBlocked(bool blocked)
+        {
+            recoveryBlocked = blocked;
+            if (blocked)
+                meleeBody.linearVelocity = Vector2.zero;
         }
 
         internal IReadOnlyList<RunSignal> ObserveAttacks(TimeSpan now)
@@ -174,7 +182,7 @@ namespace ProjectWeapon.ZoneOneGreybox
                 ranged.ApplyDamage(hit, effectiveAt);
         }
 
-        private bool CanCollect() => run.Phase == RunPhase.Exploring
+        private bool CanCollect() => !recoveryBlocked && run.Phase == RunPhase.Exploring
             && run.CurrentRun is { } current && readTime() < current.Deadline;
 
         private void RecordDamage(IReadOnlyList<DamageRequest> hits, TimeSpan effectiveAt)

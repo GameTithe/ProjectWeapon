@@ -54,7 +54,7 @@ namespace ProjectWeapon.Settlement
         }
 
         public RunSettlementCommit TrySettle(RunResult run, SortieManifest manifest,
-            IReadOnlyList<WeaponInstance> heldAtEnd, RunCoinAccumulator wallet)
+            IReadOnlyList<WeaponInstance> heldAtEnd, RunCoinAccumulator wallet, bool requireExactReservations = false)
         {
             if (run == null)
                 throw new ArgumentNullException(nameof(run));
@@ -72,6 +72,8 @@ namespace ProjectWeapon.Settlement
                 return new RunSettlementCommit(RunSettlementStatus.MissingSave, null);
             if (ReadExisting(current, run) is RunSettlementCommit existing)
                 return existing;
+            if (requireExactReservations && !manifest.MatchesReservations(current.Weapons))
+                return new RunSettlementCommit(RunSettlementStatus.RetryRequired, current);
 
             RunCoinSettlementProposal coins = wallet.ProposeSettlement(new WalletBalance(current.ConfirmedCoins), run);
             SaveSnapshot candidate = BuildCandidate(current, run, manifest, heldAtEnd.ToArray(), coins);
