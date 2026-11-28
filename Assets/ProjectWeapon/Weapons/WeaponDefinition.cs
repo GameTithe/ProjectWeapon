@@ -10,7 +10,8 @@ namespace ProjectWeapon.Weapons
         Spear = 2,
         Bow = 3,
         Mace = 4,
-        Dagger = 5
+        Dagger = 5,
+        Axe = 6
     }
 
     [CreateAssetMenu(menuName = "ProjectWeapon/Weapon Definition")]
