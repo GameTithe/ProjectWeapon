@@ -24,7 +24,6 @@ namespace ProjectWeapon.AutoAttack.Tests
             Assert.That(weapon.Id.Value, Is.EqualTo("flame_sword"));
             Assert.That(weapon.Grade, Is.EqualTo(2));
             Assert.That(weapon.PrototypeBasicAttackPattern, Is.EqualTo("화염 베기"));
-            Assert.That(weapon.Skill, Is.Null);
             var pattern = (MeleeSlashPattern)weapon.BasicAttack;
             var candidates = new[]
             {
