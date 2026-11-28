@@ -1,0 +1,13 @@
+{
+    "name": "ProjectWeapon.RunBagUI.Tests",
+    "rootNamespace": "ProjectWeapon.RunBagUI.Tests",
+    "references": [
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Loot",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.RunBagUI",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

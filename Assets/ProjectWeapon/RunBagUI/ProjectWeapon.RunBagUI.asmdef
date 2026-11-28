@@ -1,0 +1,12 @@
+{
+    "name": "ProjectWeapon.RunBagUI",
+    "rootNamespace": "ProjectWeapon.RunBagUI",
+    "references": [
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Loot",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Weapons",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ]
+}

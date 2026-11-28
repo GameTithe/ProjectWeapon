@@ -56,6 +56,36 @@ namespace ProjectWeapon.Loot
             return attempts.Remove(id);
         }
 
+        /// <summary>Places an owned item back into the world using its original instance ID.</summary>
+        /// <remarks>The factory must return a fresh, inactive WorldLoot at a legal drop position,
+        /// or null if it cannot stage a drop. This method activates it after the inventory accepts the removal.</remarks>
+        public InventoryMoveResult TryDropRunSlot(WeaponInstanceId id, WeaponLocation source,
+            Func<WeaponInstance, WorldLoot?> stageDrop)
+        {
+            if (stageDrop == null)
+                throw new ArgumentNullException(nameof(stageDrop));
+
+            WorldLoot? staged = null;
+            InventoryMoveResult result = inventory.TryDropRunSlot(id, source, item =>
+            {
+                staged = stageDrop(item);
+                if (!staged || staged!.gameObject.activeSelf || !staged.enabled || staged.Item != null
+                    || (staged.transform.parent && !staged.transform.parent.gameObject.activeInHierarchy))
+                    return false;
+
+                staged.Initialize(item);
+                return true;
+            });
+
+            if (result == InventoryMoveResult.Moved)
+            {
+                attempts.Remove(id);
+                staged!.gameObject.SetActive(true);
+            }
+
+            return result;
+        }
+
         public static bool IsWithinRange(Vector2 center, Vector2 item, float radius)
         {
             if (!float.IsFinite(center.x) || !float.IsFinite(center.y) || !float.IsFinite(item.x)
