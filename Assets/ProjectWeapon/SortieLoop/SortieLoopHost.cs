@@ -13,6 +13,8 @@ using ProjectWeapon.Settlement;
 using ProjectWeapon.SettlementUI;
 using ProjectWeapon.SortieUI;
 using ProjectWeapon.Wallet;
+using ProjectWeapon.WarehouseUI;
+using ProjectWeapon.WeaponSale;
 using ProjectWeapon.Weapons;
 using TMPro;
 using UnityEngine;
@@ -35,6 +37,10 @@ namespace ProjectWeapon.SortieLoop
         [SerializeField] private RectTransform equipmentAnchor = null!;
         [SerializeField] private SettlementResultsPanel results = null!;
         [SerializeField] private Button openEquipment = null!;
+        [SerializeField] private Button openWarehouse = null!;
+        [SerializeField] private WarehousePanel warehouse = null!;
+        [SerializeField] private TMP_FontAsset warehouseHangul = null!;
+        [SerializeField] private WeaponSalePrices warehousePrices = null!;
         [SerializeField] private Button retry = null!;
         [SerializeField] private TMP_Text lobbyStatus = null!;
         [SerializeField] private TMP_Text loading = null!;
@@ -80,6 +86,12 @@ namespace ProjectWeapon.SortieLoop
                 ProfileDirectory, "snapshot.json"));
             results.Initialize(weapons, hangul);
             openEquipment.onClick.AddListener(OpenEquipment);
+            openWarehouse.onClick.AddListener(OpenWarehouse);
+            var townRun = new RunState(() => TimeSpan.Zero);
+            var sales = new WeaponSaleService(store, townRun, weapons, warehousePrices);
+            warehouse.Initialize(weapons, warehouseHangul, warehousePrices, townRun, ReadWarehouse,
+                CommitWarehouseMove, (request, weapon) => IsWarehouseOpen ? sales.TrySell(request, weapon) : default);
+            warehouse.Closed += ShowLobby;
             retryLabel = retry.GetComponentInChildren<TMP_Text>(true);
             retry.onClick.AddListener(RetryActive);
             results.ReturnToLobbyRequested += ReturnToLobby;
@@ -114,6 +126,7 @@ namespace ProjectWeapon.SortieLoop
             retry.gameObject.SetActive(false);
             loading.gameObject.SetActive(false);
             openEquipment.interactable = false;
+            openWarehouse.interactable = false;
             if (equipment != null) equipment.gameObject.SetActive(false);
             try
             {
@@ -145,6 +158,7 @@ namespace ProjectWeapon.SortieLoop
             lobbyStatus.text = $"창고 무기 {warehouseCount}개";
             BuildEquipmentPanel();
             openEquipment.interactable = true;
+            openWarehouse.interactable = true;
         }
 
         private SaveSnapshot? CreateProfile()
@@ -188,15 +202,46 @@ namespace ProjectWeapon.SortieLoop
 
         private void OpenEquipment()
         {
-            if (!IsReady())
+            if (!lobby.activeSelf || !IsReady())
                 return;
             lobby.SetActive(false);
             equipment!.Open();
         }
 
+        private bool IsWarehouseOpen => active == null && !returning && warehouse.IsOpen;
+
+        private void OpenWarehouse()
+        {
+            if (active != null || returning || !lobby.activeSelf || !openWarehouse.interactable)
+                return;
+
+            lobby.SetActive(false);
+            warehouse.Open();
+        }
+
+        private SaveSnapshot? ReadWarehouse()
+        {
+            if (!IsWarehouseOpen)
+                return null;
+
+            SnapshotLoadResult loaded = store.LoadWithRecovery(definitions.ContainsKey);
+            return loaded.Status == SnapshotLoadStatus.Healthy ? loaded.Snapshot : null;
+        }
+
+        private SaveSnapshot? CommitWarehouseMove(SaveSnapshot expected, IReadOnlyList<WeaponInstance> positions)
+        {
+            if (!IsWarehouseOpen || expected.Weapons.Any(item => item.Location.Kind == WeaponLocationKind.RunReserved))
+                return null;
+
+            SaveSnapshot proposal = expected.Next(expected.ConfirmedCoins, weapons: positions);
+            SnapshotCommitResult result = store.Commit(expected.Revision, proposal);
+            return result.Status is SnapshotCommitStatus.Committed or SnapshotCommitStatus.AlreadyCommitted
+                ? result.ActiveSnapshot : null;
+        }
+
         private SortieStartResult ConfirmSortie()
         {
-            if (!IsReady() || town == null || profile == null)
+            if (!IsReady() || warehouse.IsOpen || town == null || profile == null)
                 return default;
 
             var proposedTown = new InventoryService(town.Snapshot());

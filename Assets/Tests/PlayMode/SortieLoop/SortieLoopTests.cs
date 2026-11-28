@@ -568,6 +568,98 @@ namespace ProjectWeapon.SortieLoop.Tests
             CollectionAssert.AreEqual(reserved, File.ReadAllBytes(snapshotPath));
         }
 
+        [UnityTest]
+        public IEnumerator RealWarehouseButtonCommitsEquipmentAndSaleThenOpensTheSameEquipmentInSortie()
+        {
+            SaveSnapshot previous = store.Load()!;
+            WeaponInstance duplicate = PersonalWeapon("old_sword");
+            Guid priorRun = Guid.NewGuid();
+            var priorSettlement = new SettlementSaveRecord(priorRun, "RunSettlement:" + priorRun, "Extracted");
+            var priorDraw = new CoinWeaponDrawSaveRecord(Guid.NewGuid(), 500, 180, warehouseSpare.Id,
+                warehouseSpare.DefinitionId, 1);
+            var priorSale = new WeaponSaleSaveRecord(Guid.NewGuid(), WeaponInstanceId.New(), sword.DefinitionId, 1, 30, 210);
+            var priorMilestone = new CatalogMilestoneSaveRecord(5, 500, priorRun);
+            var recovered = new[] { "old_sword", "wooden_spear", "hunting_bow", "mace", "dagger" }.Select(
+                id => new CatalogSaveRecord(new WeaponDefinitionId(id), "recovered"));
+            SaveSnapshot history = previous.Next(210, weapons: previous.Weapons.Append(duplicate), catalog: recovered,
+                settlements: new[] { priorSettlement }, coinWeaponDraws: new[] { priorDraw },
+                weaponSales: new[] { priorSale }, catalogMilestones: new[] { priorMilestone });
+            Assert.That(store.Commit(previous.Revision, history).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+
+            WeaponInstance equipped = new[] { sword, duplicate }.OrderBy(item => item.Id.ToString(), StringComparer.Ordinal).First();
+            WeaponInstance offered = equipped.Id == sword.Id ? duplicate : sword;
+            Button OldSwordRow() => VisibleButtons("WarehouseWeapon").First(
+                button => button.GetComponentInChildren<TMP_Text>().text == "낡은 검");
+
+            ClickByRaycast(ButtonNamed("Open Warehouse"));
+            yield return null;
+            Assert.That(host.IsInLobby, Is.False);
+            Assert.That(VisibleButtons("Open Equipment"), Is.Empty);
+            ClickByRaycast(OldSwordRow());
+            ClickByRaycast(ButtonNamed("EquipSlot0"));
+            SaveSnapshot afterMove = store.Load()!;
+            Assert.That(afterMove.Revision, Is.EqualTo(history.Revision + 1));
+            WeaponInstance savedEquipment = afterMove.Weapons.Single(item => item.Id == equipped.Id);
+            Assert.That(savedEquipment.Location.Kind, Is.EqualTo(WeaponLocationKind.Equipped));
+            Assert.That(savedEquipment.Location.SlotIndex, Is.Zero);
+            Assert.That(afterMove.Weapons.Single(item => item.Id == offered.Id).Location.Kind,
+                Is.EqualTo(WeaponLocationKind.Warehouse));
+
+            ClickByRaycast(OldSwordRow());
+            ClickByRaycast(ButtonNamed("PrepareSale"));
+            yield return null;
+            Assert.That(lobby.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<TMP_Text>())
+                .Single(text => text.name == "SaleQuote").text, Is.EqualTo("낡은 검 · 30 코인"));
+            Button confirm = ButtonNamed("ConfirmSale");
+            ClickByRaycast(confirm);
+            confirm.onClick.Invoke();
+            SaveSnapshot afterSale = store.Load()!;
+            Assert.That(afterSale.Revision, Is.EqualTo(history.Revision + 2));
+            Assert.That(afterSale.ConfirmedCoins, Is.EqualTo(240));
+            Assert.That(afterSale.Weapons.Any(item => item.Id == offered.Id), Is.False);
+            Assert.That(afterSale.WeaponSales.Single(item => item.InstanceId == offered.Id).Price, Is.EqualTo(30));
+            Assert.That(afterSale.WeaponSales, Has.Count.EqualTo(2));
+
+            ClickByRaycast(ButtonNamed("Close"));
+            yield return null;
+            Assert.That(host.IsInLobby, Is.True);
+            ClickByRaycast(ButtonNamed("Open Equipment"));
+            yield return null;
+            Assert.That(ButtonNamed("Equipped0").GetComponentInChildren<TMP_Text>().text, Does.Contain("낡은 검"));
+            ClickByRaycast(ButtonNamed("Confirm"));
+            yield return WaitUntilOrFail(() => host.ActiveRoom != null, "The equipped warehouse weapon was not used to sortie.");
+            Assert.That(host.ActiveManifest!.Equipped.Single().Id, Is.EqualTo(equipped.Id));
+
+            AssertReserved(equipped, host.ActiveRoom!.Run.CurrentRun!.Id, history.Revision + 3);
+            SaveSnapshot active = store.Load()!;
+            AssertWarehouse(active, warehouseSpare);
+            Assert.That(active.Weapons.Any(item => item.Id == offered.Id), Is.False);
+            Assert.That(active.ConfirmedCoins, Is.EqualTo(afterSale.ConfirmedCoins));
+            Assert.That(active.Settlements.Single().RunId, Is.EqualTo(priorRun));
+            Assert.That(active.CoinWeaponDraws.Single().RequestId, Is.EqualTo(priorDraw.RequestId));
+            Assert.That(active.CatalogMilestones.Single().SourceRunId, Is.EqualTo(priorMilestone.SourceRunId));
+            CollectionAssert.AreEquivalent(afterSale.WeaponSales.Select(item => item.RequestId),
+                active.WeaponSales.Select(item => item.RequestId));
+        }
+
+        private void ClickByRaycast(Button button)
+        {
+            Assert.That(button.IsActive() && button.interactable, Is.True, button.name);
+            EventSystem eventSystem = lobby.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<EventSystem>())
+                .Single();
+            Canvas.ForceUpdateCanvases();
+            var rect = (RectTransform)button.transform;
+            var pointer = new PointerEventData(eventSystem)
+            {
+                button = PointerEventData.InputButton.Left,
+                position = RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center))
+            };
+            var hits = new System.Collections.Generic.List<RaycastResult>();
+            eventSystem.RaycastAll(pointer, hits);
+            Assert.That(hits.FirstOrDefault().gameObject, Is.EqualTo(button.gameObject), button.name);
+            ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerClickHandler);
+        }
+
         private IEnumerator StartSortie(bool chooseSword)
         {
             Click(ButtonNamed("Open Equipment"));
