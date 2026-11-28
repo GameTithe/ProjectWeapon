@@ -7,9 +7,11 @@ using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using ProjectWeapon.Combat;
+using ProjectWeapon.CombatHud;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Loot;
 using ProjectWeapon.Run;
+using ProjectWeapon.RunRecovery;
 using ProjectWeapon.Save;
 using ProjectWeapon.Settlement;
 using ProjectWeapon.WeaponSale;
@@ -25,6 +27,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using Room = ProjectWeapon.ZoneOneGreybox.ZoneOneGreybox;
+using TouchPhase = UnityEngine.InputSystem.TouchPhase;
 
 namespace ProjectWeapon.SortieLoop.Tests
 {
@@ -37,6 +40,7 @@ namespace ProjectWeapon.SortieLoop.Tests
         private Scene lobby;
         private SortieLoopHost host = null!;
         private Keyboard keyboard = null!;
+        private Touchscreen? touchscreen;
         private InputSettings.UpdateMode originalUpdateMode;
         private InputSettings.BackgroundBehavior originalBackgroundBehavior;
         private InputSettings.EditorInputBehaviorInPlayMode originalEditorInput;
@@ -108,6 +112,9 @@ namespace ProjectWeapon.SortieLoop.Tests
             {
                 if (keyboard != null && keyboard.added)
                     InputSystem.RemoveDevice(keyboard);
+                if (touchscreen != null && touchscreen.added)
+                    InputSystem.RemoveDevice(touchscreen);
+                touchscreen = null;
                 InputSystem.settings.updateMode = originalUpdateMode;
                 InputSystem.settings.backgroundBehavior = originalBackgroundBehavior;
                 InputSystem.settings.editorInputBehaviorInPlayMode = originalEditorInput;
@@ -128,6 +135,8 @@ namespace ProjectWeapon.SortieLoop.Tests
             yield return StartSortie(chooseSword: true);
             Room room = host.ActiveRoom!;
             RunId firstRun = room.Run.CurrentRun!.Id;
+            CombatActionHud hud = host.ActiveHud!;
+            Assert.That(hud.SafeAreaRoot.Find("Extraction Status/Status").gameObject.activeSelf, Is.False);
             AssertReserved(sword, firstRun, revision: 2);
             AssertWarehouse(store.Load()!, warehouseSpare);
 
@@ -144,7 +153,9 @@ namespace ProjectWeapon.SortieLoop.Tests
             var rangedImpact = room.Encounter.Ranged.Brain.ActiveAttack!.Value.HitsAt;
             int health = room.Encounter.PlayerHealth;
 
-            yield return PressInteract();
+            ClickByRaycast(ButtonNamed("Extract"));
+            yield return null;
+            yield return ExpectExtractionHud(hud, "귀환 중", "0%");
             ExtractionAttempt interruptedByMovement = ActiveAttempt(room);
             Assert.That(interruptedByMovement.CompletesAt - interruptedByMovement.StartedAt,
                 Is.EqualTo(TimeSpan.FromSeconds(3)));
@@ -154,29 +165,43 @@ namespace ProjectWeapon.SortieLoop.Tests
             SendKeyboard();
             AssertCancelled(room, firstRun);
             Assert.That(room.Encounter.PlayerHealth, Is.EqualTo(health));
+            yield return ExpectExtractionHud(hud, "이동으로 귀환 중단");
 
             room.Player.position = room.ExtractionCenter;
-            yield return PressInteract();
+            yield return WaitUntilOrFail(() => ButtonNamed("Extract").interactable, "The return button did not enable at the portal.");
+            ClickByRaycast(ButtonNamed("Extract"));
+            yield return null;
+            yield return ExpectExtractionHud(hud, "귀환 중", "0%");
             ExtractionAttempt interruptedByHit = ActiveAttempt(room);
             Assert.That(interruptedByHit.Id, Is.Not.EqualTo(interruptedByMovement.Id));
             SetElapsed(rangedImpact);
             yield return null;
             AssertCancelled(room, firstRun);
-            Assert.That(room.Encounter.PlayerHealth, Is.LessThan(health));
+            Assert.That(room.Encounter.PlayerHealth, Is.EqualTo(health - 6));
+            yield return ExpectExtractionHud(hud, "공격으로 귀환 중단");
 
             yield return DefeatRangedEnemy(room);
             room.Player.position = room.ExtractionCenter;
-            yield return PressInteract();
+            yield return WaitUntilOrFail(() => ButtonNamed("Extract").interactable, "The return button did not enable at the portal.");
+            ClickByRaycast(ButtonNamed("Extract"));
+            yield return null;
+            yield return ExpectExtractionHud(hud, "귀환 중", "0%");
             ExtractionAttempt completed = ActiveAttempt(room);
+            SetElapsed(completed.StartedAt + TimeSpan.FromMilliseconds(1500));
+            yield return null;
+            yield return ExpectExtractionHud(hud, "귀환 중", "50%");
             SetElapsed(completed.CompletesAt - TimeSpan.FromMilliseconds(1));
             yield return null;
             Assert.That(room.Phase, Is.EqualTo(RunPhase.Extracting));
+            yield return ExpectExtractionHud(hud, "귀환 중", "99%");
             Assert.That(store.Load()!.Settlements, Is.Empty);
 
             SetElapsed(completed.CompletesAt);
             yield return null;
             Assert.That(room.Phase, Is.EqualTo(RunPhase.Succeeded));
             Assert.That(room.Run.Result!.EffectiveAt, Is.EqualTo(completed.CompletesAt));
+            Assert.That(host.ActiveHud, Is.Null);
+            Assert.That(VisibleResultTitle()?.text, Is.EqualTo("귀환 성공"));
             SaveSnapshot written = store.Load()!;
             RunSettlementDetails details = ReadReceipt(written, firstRun, RunEndReason.Extracted);
             AssertWarehouse(written, sword);
@@ -193,6 +218,7 @@ namespace ProjectWeapon.SortieLoop.Tests
             yield return StartSortie(chooseSword: false);
             Room next = host.ActiveRoom!;
             RunId nextRun = next.Run.CurrentRun!.Id;
+            Assert.That(host.ActiveHud!.SafeAreaRoot.Find("Extraction Status/Status").gameObject.activeSelf, Is.False);
             Assert.That(nextRun, Is.Not.EqualTo(firstRun));
             WeaponInstance loan = host.ActiveManifest!.Equipped.Single();
             Assert.That(loan.Provenance, Is.EqualTo(WeaponProvenance.Loan));
@@ -201,6 +227,37 @@ namespace ProjectWeapon.SortieLoop.Tests
             AssertReserved(loan, nextRun, revision: 4);
             AssertWarehouse(store.Load()!, sword);
             AssertWarehouse(store.Load()!, loot);
+        }
+
+        [UnityTest]
+        public IEnumerator CompletedChannelWithLockedSaveOffersRetryBeforeTheReceiptBasedSuccessScreen()
+        {
+            yield return StartSortie(chooseSword: true);
+            Room room = host.ActiveRoom!;
+            yield return DefeatRangedEnemy(room);
+            room.Player.position = room.ExtractionCenter;
+            yield return null;
+            ClickByRaycast(ButtonNamed("Extract"));
+            yield return null;
+            ExtractionAttempt attempt = ActiveAttempt(room);
+
+            string lockPath = Path.Combine(profileDirectory!, "snapshot.json.lock");
+            using (new FileStream(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            {
+                SetElapsed(attempt.CompletesAt);
+                yield return null;
+                Assert.That(room.Run.Result?.Reason, Is.EqualTo(RunEndReason.Extracted));
+                Assert.That(host.ActiveHud, Is.Null);
+                Assert.That(VisibleResultTitle(), Is.Null);
+                Assert.That(ButtonNamed("Retry Settlement").interactable, Is.True);
+                Assert.That(store.Load()!.Settlements, Is.Empty);
+            }
+
+            Click(ButtonNamed("Retry Settlement"));
+            yield return null;
+            Assert.That(VisibleResultTitle()?.text, Is.EqualTo("귀환 성공"));
+            Assert.That(store.Load()!.Settlements, Has.Count.EqualTo(1));
+            ReadReceipt(store.Load()!, room.Run.CurrentRun!.Id, RunEndReason.Extracted);
         }
 
         [UnityTest]
@@ -402,6 +459,172 @@ namespace ProjectWeapon.SortieLoop.Tests
         }
 
         [UnityTest]
+        public IEnumerator OverlappingAppInterruptionsKeepTheSameWorldAndRestartExtraction()
+        {
+            yield return StartSortie(chooseSword: true);
+            Room room = host.ActiveRoom!;
+            RunSession session = room.Run.CurrentRun!;
+            yield return DefeatRangedEnemy(room);
+
+            room.Player.position = room.ExtractionCenter;
+            SetElapsed(TimeSpan.FromSeconds(10));
+            Assert.That(room.TryStartExtraction(), Is.True);
+            RunLifecycleRelay relay = host.GetComponent<RunLifecycleRelay>();
+            relay.SendMessage("OnApplicationPause", true);
+            relay.SendMessage("OnApplicationFocus", false);
+            relay.SetConnectionAvailable(false);
+            Assert.That(room.Run.ActiveExtraction, Is.Null);
+            Assert.That(room.TryStartExtraction(), Is.False);
+            Assert.That(room.Player.linearVelocity, Is.EqualTo(Vector2.zero));
+
+            SetElapsed(TimeSpan.FromSeconds(12));
+            relay.SendMessage("OnApplicationPause", false);
+            relay.SendMessage("OnApplicationFocus", true);
+            Assert.That(relay.IsGameplayBlocked, Is.True);
+            Assert.That(room.TryStartExtraction(), Is.False);
+            yield return null;
+            Assert.That(store.Load()!.Revision, Is.EqualTo(2));
+
+            relay.SetConnectionAvailable(true);
+            Assert.That(relay.IsGameplayBlocked, Is.False);
+            Assert.That(host.ActiveRoom, Is.SameAs(room));
+            Assert.That(room.Run.CurrentRun, Is.SameAs(session));
+            Assert.That(room.TryStartExtraction(), Is.True);
+            Assert.That(ActiveAttempt(room).CompletesAt, Is.EqualTo(TimeSpan.FromSeconds(15)));
+            SetElapsed(TimeSpan.FromSeconds(14.99));
+            yield return null;
+            Assert.That(room.Run.Result, Is.Null);
+            SetElapsed(TimeSpan.FromSeconds(15));
+            yield return WaitUntilOrFail(() => store.Load()!.Settlements.Count == 1, "Resumed run did not settle.");
+            ReadReceipt(store.Load()!, session.Id, RunEndReason.Extracted);
+        }
+
+        [UnityTest]
+        public IEnumerator ResumingAtDeadlineAndRepeatedReconnectWriteOnlyOneTimeout()
+        {
+            yield return StartSortie(chooseSword: false);
+            Room room = host.ActiveRoom!;
+            RunSession session = room.Run.CurrentRun!;
+            RunLifecycleRelay relay = host.GetComponent<RunLifecycleRelay>();
+            SetElapsed(session.Deadline - TimeSpan.FromSeconds(1));
+            relay.SendMessage("OnApplicationPause", true);
+            SetElapsed(session.Deadline);
+            yield return null;
+            Assert.That(room.Run.Result, Is.Null);
+            Assert.That(store.Load()!.Revision, Is.EqualTo(2));
+
+            relay.SendMessage("OnApplicationPause", false);
+            Assert.That(room.Run.Result!.EffectiveAt, Is.EqualTo(session.Deadline));
+            SaveSnapshot saved = store.Load()!;
+            ReadReceipt(saved, session.Id, RunEndReason.TimeExpired);
+            string snapshotPath = Path.Combine(profileDirectory!, "snapshot.json");
+            byte[] committed = File.ReadAllBytes(snapshotPath);
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                relay.SendMessage("OnApplicationPause", true);
+                relay.SendMessage("OnApplicationPause", false);
+            }
+            CollectionAssert.AreEqual(committed, File.ReadAllBytes(snapshotPath));
+            Assert.That(store.Load()!.Revision, Is.EqualTo(3));
+            yield return ReturnToLobby();
+        }
+
+        [UnityTest]
+        public IEnumerator LiveRoomRemainsBlockedWhenDurableReservationNoLongerMatches()
+        {
+            yield return StartSortie(chooseSword: true);
+            Room room = host.ActiveRoom!;
+            RunSession session = room.Run.CurrentRun!;
+            RunLifecycleRelay relay = host.GetComponent<RunLifecycleRelay>();
+            relay.SendMessage("OnApplicationPause", true);
+
+            SaveSnapshot previous = store.Load()!;
+            var items = previous.Weapons.Select(item => item.Id == sword.Id
+                ? WeaponInstance.Rehydrate(sword.Id, sword.DefinitionId, sword.Provenance, WeaponLocation.Warehouse())
+                : item);
+            SaveSnapshot changed = previous.Next(previous.ConfirmedCoins, weapons: items.ToArray());
+            Assert.That(store.Commit(previous.Revision, changed).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+            SetElapsed(session.Deadline);
+            relay.SendMessage("OnApplicationPause", false);
+            room.Player.position = room.ExtractionCenter;
+            yield return null;
+            Assert.That(relay.IsGameplayBlocked, Is.True);
+            Assert.That(room.TryStartExtraction(), Is.False);
+            Assert.That(room.Run.Result, Is.Null);
+            Assert.That(store.Load()!.Revision, Is.EqualTo(changed.Revision));
+            Assert.That(store.Load()!.Settlements, Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator OrdinaryTimeoutCannotSettleAgainstAnUnreservedEquippedWeapon()
+        {
+            yield return StartSortie(chooseSword: true);
+            Room room = host.ActiveRoom!;
+            RunSession session = room.Run.CurrentRun!;
+            SaveSnapshot reserved = store.Load()!;
+            SaveSnapshot changed = reserved.Next(reserved.ConfirmedCoins, weapons: reserved.Weapons.Select(item =>
+                item.Id == sword.Id ? WeaponInstance.Rehydrate(sword.Id, sword.DefinitionId, sword.Provenance,
+                    WeaponLocation.Equipped(0)) : item));
+            Assert.That(store.Commit(reserved.Revision, changed).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+
+            SetElapsed(session.Deadline);
+            yield return WaitUntilOrFail(() => room.Run.Result != null, "The run did not finalize.");
+            Assert.That(store.Load()!.Revision, Is.EqualTo(changed.Revision));
+            Assert.That(store.Load()!.Settlements, Is.Empty);
+            Assert.That(store.Load()!.Weapons.Single(item => item.Id == sword.Id).Location.Kind,
+                Is.EqualTo(WeaponLocationKind.Equipped));
+        }
+
+        [UnityTest]
+        public IEnumerator ExistingReceiptDuringRoomLoadPreventsEnteringTheSettledRun()
+        {
+            Click(ButtonNamed("Open Equipment"));
+            Click(WarehouseSwordButton());
+            Click(ButtonNamed("Confirm"));
+            Guid runId = host.ActiveManifest!.RunId;
+            Assert.That(host.ActiveRoom, Is.Null);
+
+            RunLifecycleRelay relay = host.GetComponent<RunLifecycleRelay>();
+            relay.SendMessage("OnApplicationPause", true);
+            SaveSnapshot reserved = store.Load()!;
+            var receipt = new SettlementSaveRecord(runId, "RunSettlement:" + runId,
+                nameof(RunEndReason.TimeExpired));
+            SaveSnapshot settled = reserved.Next(reserved.ConfirmedCoins,
+                weapons: reserved.Weapons.Where(item => item.Location.ReservedRunId != runId),
+                settlements: reserved.Settlements.Append(receipt));
+            Assert.That(store.Commit(reserved.Revision, settled).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+            relay.SendMessage("OnApplicationPause", false);
+
+            yield return null;
+            Assert.That(host.ActiveRoom, Is.Null);
+            yield return ReturnToLobby();
+            Assert.That(store.Load()!.Revision, Is.EqualTo(settled.Revision));
+            Assert.That(store.Load()!.Settlements.Single().RunId, Is.EqualTo(runId));
+        }
+
+        [UnityTest]
+        public IEnumerator ColdLobbyKeepsUnverifiableReservationAndDisablesSortie()
+        {
+            yield return StartSortie(chooseSword: true);
+            string snapshotPath = Path.Combine(profileDirectory!, "snapshot.json");
+            byte[] reserved = File.ReadAllBytes(snapshotPath);
+            Guid runId = host.ActiveManifest!.RunId;
+
+            yield return SceneManager.UnloadSceneAsync(lobby);
+            yield return SceneManager.UnloadSceneAsync(SceneManager.GetSceneByName(RoomName));
+            yield return LoadLobby(snapshotPath);
+            Button open = ButtonNamed("Open Equipment");
+            Assert.That(open.interactable, Is.False);
+            open.onClick.Invoke();
+            yield return null;
+            Assert.That(host.IsInLobby, Is.True);
+            Assert.That(host.ActiveManifest, Is.Null);
+            Assert.That(store.Load()!.Weapons.Single(item => item.Id == sword.Id).Location.ReservedRunId,
+                Is.EqualTo(runId));
+            CollectionAssert.AreEqual(reserved, File.ReadAllBytes(snapshotPath));
+        }
+
+        [UnityTest]
         public IEnumerator RealWarehouseButtonCommitsEquipmentAndSaleThenOpensTheSameEquipmentInSortie()
         {
             SaveSnapshot previous = store.Load()!;
@@ -475,6 +698,24 @@ namespace ProjectWeapon.SortieLoop.Tests
                 active.WeaponSales.Select(item => item.RequestId));
         }
 
+        private TMP_Text? VisibleResultTitle()
+            => lobby.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<TMP_Text>())
+                .SingleOrDefault(label => label.name == "Result Title");
+
+        private static IEnumerator ExpectExtractionHud(CombatActionHud hud, string message, string? progress = null)
+        {
+            Transform status = hud.SafeAreaRoot.Find("Extraction Status/Status");
+            TMP_Text title = status.Find("Title").GetComponent<TMP_Text>();
+            TMP_Text percentage = status.Find("Percentage").GetComponent<TMP_Text>();
+            yield return WaitUntilOrFail(() => status.gameObject.activeInHierarchy && title.text == message
+                && (progress == null || percentage.text == progress), "The extraction HUD did not refresh after the room frame.");
+
+            Assert.That(title.text.All(glyph => title.font.HasCharacter(glyph)), Is.True, "The live font must contain every label glyph.");
+            Assert.That(status.GetComponentsInChildren<Graphic>(true).All(graphic => !graphic.raycastTarget), Is.True);
+            Assert.That(status.Find("Progress Track").gameObject.activeSelf, Is.EqualTo(progress != null));
+            Assert.That(percentage.gameObject.activeSelf, Is.EqualTo(progress != null));
+        }
+
         private void ClickByRaycast(Button button)
         {
             Assert.That(button.IsActive() && button.interactable, Is.True, button.name);
@@ -492,6 +733,269 @@ namespace ProjectWeapon.SortieLoop.Tests
             Assert.That(hits.FirstOrDefault().gameObject, Is.EqualTo(button.gameObject), button.name);
             ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerClickHandler);
         }
+
+        [UnityTest]
+        public IEnumerator RealCatalogButtonReadsTheSavedRosterAndReturnsWithoutWriting()
+        {
+            SaveSnapshot previous = store.Load()!;
+            var catalog = new[]
+            {
+                new CatalogSaveRecord(new WeaponDefinitionId("old_sword"), "discovered"),
+                new CatalogSaveRecord(new WeaponDefinitionId("wooden_spear"), "recovered"),
+                new CatalogSaveRecord(new WeaponDefinitionId("genesis_bow"), "mastered")
+            };
+            SaveSnapshot newer = previous.Next(previous.ConfirmedCoins, catalog: catalog);
+            Assert.That(store.Commit(previous.Revision, newer).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+            string snapshotPath = Path.Combine(profileDirectory!, "snapshot.json");
+            byte[] expectedBytes = File.ReadAllBytes(snapshotPath);
+
+            ClickByRaycast(ButtonNamed("Open Catalog"));
+            yield return null;
+            Assert.That(host.IsInLobby, Is.False);
+            ScrollRect list = lobby.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<ScrollRect>())
+                .Single(candidate => candidate.name == "Catalog List");
+            Assert.That(list.content.childCount, Is.EqualTo(21));
+            Assert.That(list.content.Find("old_sword/Catalog Stage").GetComponent<TMP_Text>().text, Is.EqualTo("발견"));
+            Assert.That(list.content.Find("wooden_spear/Catalog Stage").GetComponent<TMP_Text>().text, Is.EqualTo("회수"));
+            Assert.That(list.content.Find("genesis_bow/Catalog Stage").GetComponent<TMP_Text>().text, Is.EqualTo("숙련"));
+            Assert.That(list.content.Find("genesis_bow/Weapon Name").GetComponent<TMP_Text>().text, Is.EqualTo("창세의 활"));
+
+            ClickByRaycast(ButtonNamed("Close Catalog"));
+            yield return null;
+            Assert.That(host.IsInLobby, Is.True);
+            Assert.That(host.ActiveManifest, Is.Null);
+            CollectionAssert.AreEqual(expectedBytes, File.ReadAllBytes(snapshotPath));
+            AssertWarehouse(store.Load()!, sword);
+            AssertWarehouse(store.Load()!, warehouseSpare);
+        }
+
+        [UnityTest]
+        public IEnumerator ActualCombatHudCastsTheStarterLoanAndReturnsThroughThePortal()
+        {
+            Assert.That(host.ActiveHud, Is.Null);
+            yield return EnterWithTouch();
+
+            Room room = host.ActiveRoom!;
+            CombatActionHud hud = host.ActiveHud!;
+            Assert.That(hud, Is.Not.Null);
+            Assert.That(host.ActiveManifest!.Equipped.Single().IsLoaned, Is.True);
+            Assert.That(host.ActiveManifest.Equipped.Single().DefinitionId.Value, Is.EqualTo("old_sword"));
+            Button skillButton = ButtonNamed("Skill");
+            Assert.That(skillButton.interactable, Is.True);
+
+            Vector2 skill = Center(skillButton);
+            Vector2 release = skill + Vector2.right * 24f * hud.GetComponentInParent<Canvas>().scaleFactor;
+            room.Player.position = new Vector2(5.5f, 2.5f);
+            Rigidbody2D meleeBody = room.Encounter.Melee.GetComponent<Rigidbody2D>();
+            meleeBody.position = new Vector2(7.25f, 2.5f);
+            Physics2D.SyncTransforms();
+            float meleeBefore = room.Encounter.Melee.Brain.CurrentHealth;
+
+            yield return Touch(3, skill, TouchPhase.Began);
+            yield return Touch(3, release, TouchPhase.Moved);
+            yield return Touch(3, release, TouchPhase.Ended);
+            Assert.That(room.Encounter.Melee.Brain.CurrentHealth, Is.EqualTo(meleeBefore),
+                "The sword reached an enemy through a castle wall.");
+            Assert.That(skillButton.interactable, Is.False);
+
+            SetElapsed(TimeSpan.FromSeconds(5));
+            room.Player.position = new Vector2(9.6f, 6.4f);
+            Physics2D.SyncTransforms();
+            hud.Refresh();
+            float rangedBefore = room.Encounter.Ranged.Brain.CurrentHealth;
+            Assert.That(rangedBefore, Is.GreaterThan(0f));
+            Vector2 stick = ScreenCenter((RectTransform)hud.Joystick.transform);
+            float scale = hud.GetComponentInParent<Canvas>().scaleFactor;
+            yield return Touch(4, stick, TouchPhase.Began);
+            yield return Touch(4, stick + Vector2.up * 35f * scale, TouchPhase.Moved);
+            yield return Touch(5, skill, TouchPhase.Began);
+            yield return Touch(5, release, TouchPhase.Moved);
+            Assert.That(hud.IsAiming && hud.Joystick.IsHeld, Is.True);
+            Vector2 beforeMovement = room.Player.position;
+            yield return new WaitForFixedUpdate();
+            yield return null;
+            Assert.That(room.Player.position.y, Is.GreaterThan(beforeMovement.y));
+            Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.EqualTo(rangedBefore));
+            yield return Touch(5, release, TouchPhase.Ended);
+            Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.Zero);
+            Assert.That(hud.Joystick.IsHeld, Is.True);
+            yield return Touch(4, stick, TouchPhase.Ended);
+
+            RunLifecycleRelay relay = host.GetComponent<RunLifecycleRelay>();
+            hud.SendMessage("OnApplicationPause", true);
+            relay.SendMessage("OnApplicationPause", true);
+            Assert.That(hud.GetComponent<CanvasGroup>().alpha, Is.Zero);
+            Assert.That(hud.GetComponent<CanvasGroup>().blocksRaycasts, Is.False);
+            hud.SendMessage("OnApplicationPause", false);
+            relay.SendMessage("OnApplicationPause", false);
+            Assert.That(host.ActiveHud, Is.SameAs(hud));
+            Assert.That(hud.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
+
+            SetElapsed(TimeSpan.FromSeconds(7));
+            room.Player.position = room.ExtractionCenter;
+            hud.Refresh();
+            yield return Tap(6, ButtonNamed("Extract"));
+            Assert.That(room.Phase, Is.EqualTo(RunPhase.Extracting));
+            SetElapsed(TimeSpan.FromSeconds(7.1));
+            yield return Touch(7, Center(ButtonNamed("Dodge")), TouchPhase.Began);
+            Assert.That(room.Phase, Is.EqualTo(RunPhase.Exploring));
+            Assert.That(room.Movement!.IsDodging, Is.True);
+            yield return Touch(7, Center(ButtonNamed("Dodge")), TouchPhase.Ended);
+            yield return WaitUntilOrFail(() => !room.Movement.IsDodging, "The real dodge did not finish.");
+
+            SetElapsed(TimeSpan.FromSeconds(9));
+            room.Player.position = room.ExtractionCenter;
+            hud.Refresh();
+            yield return Tap(8, ButtonNamed("Extract"));
+            RunId id = room.Run.CurrentRun!.Id;
+            SetElapsed(ActiveAttempt(room).CompletesAt);
+            yield return WaitUntilOrFail(() => store.Load()!.Settlements.Count == 1, "The touch return did not settle.");
+            Assert.That(host.ActiveHud, Is.Null);
+            ReadReceipt(store.Load()!, id, RunEndReason.Extracted);
+            yield return Tap(9, ButtonNamed("Return to Lobby"));
+            yield return WaitUntilOrFail(() => host.IsInLobby, "The result touch did not return to the lobby.");
+            Assert.That(host.ActiveHud, Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator ActualWeaponButtonsSwitchTheFieldDefinitionAndItsSkillAvailability()
+        {
+            yield return EnterWithTouch(chooseTwo: true);
+            Room room = host.ActiveRoom!;
+            Assert.That(host.ActiveManifest!.Equipped.Select(item => item.Id),
+                Is.EqualTo(new[] { sword.Id, warehouseSpare.Id }));
+            Assert.That(ButtonNamed("Skill").interactable, Is.True);
+
+            room.Player.position = new Vector2(9.65f, 6.4f);
+            Physics2D.SyncTransforms();
+            float before = room.Encounter.Ranged.Brain.CurrentHealth;
+            yield return null;
+            Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.EqualTo(before));
+            yield return Tap(5, ButtonNamed("Weapon Slot 2"));
+            Assert.That(ButtonNamed("Weapon Slot 2").interactable, Is.False);
+            Assert.That(ButtonNamed("Weapon Slot 1").interactable, Is.True);
+            Assert.That(ButtonNamed("Skill").interactable, Is.False);
+            Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.EqualTo(before - 10f));
+
+            yield return Tap(6, ButtonNamed("Weapon Slot 1"));
+            Assert.That(ButtonNamed("Weapon Slot 1").interactable, Is.False);
+            Assert.That(ButtonNamed("Skill").interactable, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator CombatStatusInActualRoomFollowsDamageTimeAndEquipment()
+        {
+            yield return EnterWithTouch(chooseTwo: true);
+            Room room = host.ActiveRoom!;
+            Transform status = host.ActiveHud!.SafeAreaRoot.Find("Combat Status/CombatHUD");
+            TMP_Text health = status.Find("Health/HealthValue").GetComponent<TMP_Text>();
+            TMP_Text clockText = status.Find("Countdown/CountdownValue").GetComponent<TMP_Text>();
+            var first = status.Find("EquipmentSlot1/ActiveMarker").GetComponent<Image>();
+            var second = status.Find("EquipmentSlot2/ActiveMarker").GetComponent<Image>();
+            Assert.That(health.text, Is.EqualTo("HP 100 / 100"));
+            Assert.That(clockText.text, Is.EqualTo("08:00"));
+            Assert.That(status.Find("EquipmentSlot1/SlotValue").GetComponent<TMP_Text>().text, Does.Contain("낡은 검"));
+            Assert.That(status.Find("EquipmentSlot2/SlotValue").GetComponent<TMP_Text>().text, Does.Contain("나무 창"));
+            Assert.That(first.enabled, Is.True);
+            Assert.That(second.enabled, Is.False);
+
+            room.Player.position = (Vector2)room.Encounter.Ranged.transform.position + Vector2.left * 3f;
+            Physics2D.SyncTransforms();
+            SetElapsed(TimeSpan.FromSeconds(2));
+            yield return WaitUntilOrFail(() => clockText.text == "07:58", "The status clock did not sample the active run.");
+            yield return WaitUntilOrFail(() => room.Encounter.Ranged.Brain.ActiveAttack.HasValue,
+                "The ranged enemy did not start its visible attack.");
+            SetElapsed(room.Encounter.Ranged.Brain.ActiveAttack!.Value.HitsAt);
+            yield return WaitUntilOrFail(() => health.text == "HP 94 / 100", "The ranged hit did not update the status HUD.");
+            Assert.That(room.Encounter.PlayerHealth, Is.EqualTo(94));
+            yield return Tap(5, ButtonNamed("Weapon Slot 2"));
+            Assert.That(first.enabled, Is.False);
+            Assert.That(second.enabled, Is.True);
+
+            TimeSpan deadline = room.Run.CurrentRun!.Deadline;
+            SetElapsed(deadline - TimeSpan.FromMilliseconds(100));
+            yield return WaitUntilOrFail(() => clockText.text == "00:01", "The last partial second was rounded down.");
+            SetElapsed(deadline);
+            yield return WaitUntilOrFail(() => host.ActiveHud == null, "The HUD survived the timed-out run.");
+            Assert.That(room.Run.Result!.Remaining, Is.EqualTo(TimeSpan.Zero));
+        }
+
+        [UnityTest]
+        public IEnumerator ActualDaggerFollowUpBlocksSlotChangeUntilItsSecondHit()
+        {
+            WeaponInstance dagger = PersonalWeapon("dagger");
+            SaveSnapshot previous = store.Load()!;
+            SaveSnapshot withDagger = previous.Next(previous.ConfirmedCoins, weapons: new[] { sword, dagger });
+            Assert.That(store.Commit(previous.Revision, withDagger).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+            yield return SceneManager.UnloadSceneAsync(lobby);
+            yield return LoadLobby(Path.Combine(profileDirectory!, "snapshot.json"));
+            yield return EnterWithTouch(chooseTwo: true);
+
+            Room room = host.ActiveRoom!;
+            Assert.That(host.ActiveManifest!.Equipped[1].Id, Is.EqualTo(dagger.Id));
+            yield return Tap(5, ButtonNamed("Weapon Slot 2"));
+            SetElapsed(TimeSpan.FromSeconds(1));
+            room.Player.position = new Vector2(10.6f, 6.4f);
+            Physics2D.SyncTransforms();
+
+            float before = room.Encounter.Ranged.Brain.CurrentHealth;
+            yield return WaitUntilOrFail(() => room.Encounter.Ranged.Brain.CurrentHealth < before,
+                "The real dagger did not start its attack.");
+            Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.EqualTo(before - 5f));
+            host.ActiveHud!.Refresh();
+            Button firstSlot = ButtonNamed("Weapon Slot 1");
+            Assert.That(firstSlot.interactable, Is.False);
+            Vector2 firstSlotCenter = Center(firstSlot);
+            yield return Touch(6, firstSlotCenter, TouchPhase.Began);
+            yield return Touch(6, firstSlotCenter, TouchPhase.Ended);
+            Assert.That(ButtonNamed("Skill").interactable, Is.False);
+
+            SetElapsed(TimeSpan.FromSeconds(1.12));
+            yield return WaitUntilOrFail(() => room.Encounter.Ranged.Brain.CurrentHealth == before - 10f,
+                "The original dagger's follow-up did not resolve.");
+            host.ActiveHud.Refresh();
+            Assert.That(firstSlot.interactable, Is.True);
+            Assert.That(ButtonNamed("Skill").interactable, Is.False);
+            yield return Tap(7, firstSlot);
+            Assert.That(ButtonNamed("Skill").interactable, Is.True);
+        }
+
+        private IEnumerator EnterWithTouch(bool chooseTwo = false)
+        {
+            touchscreen = InputSystem.AddDevice<Touchscreen>();
+            yield return Tap(1, ButtonNamed("Open Equipment"));
+            if (chooseTwo)
+            {
+                yield return Tap(2, WarehouseSwordButton());
+                yield return Tap(3, VisibleButtons("WarehouseWeapon").Single());
+            }
+
+            sortieOrigin = clock;
+            yield return Tap(chooseTwo ? 4 : 2, ButtonNamed("Confirm"));
+            yield return WaitUntilOrFail(() => host.ActiveRoom != null && host.ActiveHud != null, "The combat HUD did not bind.");
+            yield return null;
+        }
+
+        private IEnumerator Tap(int id, Button button)
+        {
+            Assert.That(button.IsActive() && button.interactable, Is.True, button.name);
+            Canvas.ForceUpdateCanvases();
+            Vector2 point = Center(button);
+            yield return Touch(id, point, TouchPhase.Began);
+            yield return Touch(id, point, TouchPhase.Ended);
+        }
+
+        private IEnumerator Touch(int id, Vector2 point, TouchPhase phase)
+        {
+            InputSystem.QueueStateEvent(touchscreen!, new TouchState { touchId = id, position = point, phase = phase });
+            InputSystem.Update();
+            yield return null;
+        }
+
+        private static Vector2 Center(Button button) => ScreenCenter((RectTransform)button.transform);
+
+        private static Vector2 ScreenCenter(RectTransform rect)
+            => RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center));
 
         private IEnumerator StartSortie(bool chooseSword)
         {

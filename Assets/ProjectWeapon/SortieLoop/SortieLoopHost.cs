@@ -4,9 +4,15 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using ProjectWeapon.CatalogUI;
+using ProjectWeapon.CombatHud;
+using ProjectWeapon.CombatStatusUI;
 using ProjectWeapon.Dungeon;
+using ProjectWeapon.ExtractionUI;
 using ProjectWeapon.Inventory;
+using ProjectWeapon.Movement;
 using ProjectWeapon.Run;
+using ProjectWeapon.RunRecovery;
 using ProjectWeapon.Save;
 using ProjectWeapon.Settlement;
 using ProjectWeapon.SettlementUI;
@@ -14,12 +20,14 @@ using ProjectWeapon.SortieUI;
 using ProjectWeapon.Wallet;
 using ProjectWeapon.WarehouseUI;
 using ProjectWeapon.WeaponSale;
+using ProjectWeapon.WeaponSwitch;
 using ProjectWeapon.Weapons;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Room = ProjectWeapon.ZoneOneGreybox.ZoneOneGreybox;
+using Encounter = ProjectWeapon.ZoneOneGreybox.ZoneOneEncounter;
 
 namespace ProjectWeapon.SortieLoop
 {
@@ -40,9 +48,15 @@ namespace ProjectWeapon.SortieLoop
         [SerializeField] private WarehousePanel warehouse = null!;
         [SerializeField] private TMP_FontAsset warehouseHangul = null!;
         [SerializeField] private WeaponSalePrices warehousePrices = null!;
+        [SerializeField] private Button openCatalog = null!;
+        [SerializeField] private CatalogListPanel catalogList = null!;
+        [SerializeField] private TMP_FontAsset catalogHangul = null!;
         [SerializeField] private Button retry = null!;
         [SerializeField] private TMP_Text lobbyStatus = null!;
         [SerializeField] private TMP_Text loading = null!;
+        [SerializeField] private Canvas combatCanvas = null!;
+        [SerializeField] private VirtualJoystick combatJoystick = null!;
+        [SerializeField] private MovementSettings combatMovementSettings = null!;
 
         private AtomicSnapshotStore store = null!;
         private IReadOnlyDictionary<WeaponDefinitionId, WeaponDefinition> definitions = null!;
@@ -56,11 +70,16 @@ namespace ProjectWeapon.SortieLoop
         private bool returning;
         private bool refreshLobby;
         private bool cleaningFailedLoad;
+        private bool recoveryPending;
+        private CombatHudPanel? combatStatus;
+        private ExtractionStatusPanel? extractionStatus;
+        private RunLifecycleRelay lifecycle = null!;
         private Scene roomScene;
         private AsyncOperation? roomLoad;
         private TMP_Text retryLabel = null!;
 
         public Room? ActiveRoom { get; private set; }
+        public CombatActionHud? ActiveHud { get; private set; }
         public SortieManifest? ActiveManifest => active?.Manifest;
         public bool IsInLobby => active == null && lobby.activeSelf;
 
@@ -76,12 +95,17 @@ namespace ProjectWeapon.SortieLoop
         private void Start()
         {
             initialized = true;
+            lifecycle = gameObject.AddComponent<RunLifecycleRelay>();
+            lifecycle.RecoveryChanged += HandleRecovery;
             definitions = weapons.CreateLookup();
             store = new AtomicSnapshotStore(overriddenPath ?? Path.Combine(Application.persistentDataPath,
                 ProfileDirectory, "snapshot.json"));
             results.Initialize(weapons, hangul);
             openEquipment.onClick.AddListener(OpenEquipment);
             openWarehouse.onClick.AddListener(OpenWarehouse);
+            openCatalog.onClick.AddListener(OpenCatalog);
+            catalogList.Initialize(catalogHangul, ReadCatalogSnapshot);
+            catalogList.Closed += () => lobby.SetActive(true);
             var townRun = new RunState(() => TimeSpan.Zero);
             var sales = new WeaponSaleService(store, townRun, weapons, warehousePrices);
             warehouse.Initialize(weapons, warehouseHangul, warehousePrices, townRun, ReadWarehouse,
@@ -97,6 +121,11 @@ namespace ProjectWeapon.SortieLoop
 
         private void LateUpdate()
         {
+            if (combatStatus && active is { } sortie)
+                combatStatus!.RefreshTime(sortie.Clock());
+            if (extractionStatus)
+                extractionStatus!.Render();
+
             if (!refreshLobby)
                 return;
 
@@ -108,12 +137,77 @@ namespace ProjectWeapon.SortieLoop
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneUnloaded -= OnSceneUnloaded;
+            if (lifecycle)
+                lifecycle.RecoveryChanged -= HandleRecovery;
             if (active != null)
                 active.Run.RunResultFinalized -= FinishSortie;
         }
 
+        private void BindCombatHud(Room room, ActiveSortie sortie)
+        {
+            PlayerMovement movement = room.Movement
+                ?? throw new InvalidOperationException("The combat room needs a movement controller.");
+            Encounter encounter = room.Encounter
+                ? room.Encounter : throw new InvalidOperationException("The combat room needs an encounter.");
+            bool IsWeaponActionBusy() => movement.IsDodging || encounter.IsWeaponActionBusy;
+            var equipment = new EquippedWeaponSelection(sortie.Run, sortie.Field, weapons,
+                IsWeaponActionBusy, new WeaponActionLocks());
+            var skills = encounter.BindPlayerEquipment(equipment, () => movement.IsDodging);
+
+            ActiveHud = CombatActionHud.Create(combatCanvas, combatJoystick, hangul);
+            ActiveHud.Bind(new CombatHudBindings(sortie.Run, movement, combatMovementSettings, sortie.Field,
+                equipment, skills, sortie.Clock, () => CanControlRoom(room), () => room.CanStartExtraction,
+                room.TryStartExtraction, IsWeaponActionBusy, Encounter.SupportsManualSkill));
+
+            var statusObject = new GameObject("Combat Status", typeof(RectTransform), typeof(CombatHudPanel));
+            var statusRect = (RectTransform)statusObject.transform;
+            statusRect.SetParent(ActiveHud.SafeAreaRoot, false);
+            statusRect.anchorMin = Vector2.zero;
+            statusRect.anchorMax = Vector2.one;
+            statusRect.offsetMin = statusRect.offsetMax = Vector2.zero;
+            CombatHudPanel status = statusRect.GetComponent<CombatHudPanel>();
+            combatStatus = status;
+            status.Initialize(warehouseHangul);
+            status.Bind(encounter.Health, sortie.Countdown, sortie.Field, weapons, sortie.Clock(), equipment.ActiveSlotIndex);
+            equipment.ActiveSlotChanged += selected => status.RefreshEquipment(selected.SlotIndex);
+
+            var extractionObject = new GameObject("Extraction Status", typeof(RectTransform), typeof(ExtractionStatusPanel));
+            var extractionRect = (RectTransform)extractionObject.transform;
+            extractionRect.SetParent(ActiveHud.SafeAreaRoot, false);
+            extractionRect.anchorMin = extractionRect.anchorMax = extractionRect.pivot = new Vector2(.5f, 1f);
+            extractionRect.anchoredPosition = new Vector2(0f, -76f);
+            extractionRect.sizeDelta = new Vector2(336f, 68f);
+            var extraction = extractionObject.GetComponent<ExtractionStatusPanel>();
+            extraction.Initialize(sortie.Run, sortie.Countdown.Extraction, hangul);
+            extractionStatus = extraction;
+        }
+
+        private bool CanControlRoom(Room room) => room && room == ActiveRoom && !returning && !lifecycle.IsGameplayBlocked
+            && active is { Result: null, Receipt: null };
+
+        private void RefreshCombatHud()
+        {
+            if (!ActiveHud)
+                return;
+
+            ActiveHud!.SetVisible(ActiveRoom && CanControlRoom(ActiveRoom!));
+        }
+
+        private void RemoveCombatHud()
+        {
+            if (ActiveHud)
+            {
+                ActiveHud!.gameObject.SetActive(false);
+                Destroy(ActiveHud.gameObject);
+            }
+            ActiveHud = null;
+            combatStatus = null;
+            extractionStatus = null;
+        }
+
         private void ShowLobby()
         {
+            town = null;
             lobby.SetActive(true);
             retry.gameObject.SetActive(false);
             loading.gameObject.SetActive(false);
@@ -189,7 +283,7 @@ namespace ProjectWeapon.SortieLoop
             equipment.Confirmed += _ => LoadRoom();
         }
 
-        private bool IsReady() => profile != null && active == null && !returning
+        private bool IsReady() => town != null && profile != null && active == null && !returning && lifecycle.IsAvailable
             && Application.CanStreamedLevelBeLoaded(RoomScene) && !SceneManager.GetSceneByName(RoomScene).isLoaded;
 
         private void OpenEquipment()
@@ -198,6 +292,28 @@ namespace ProjectWeapon.SortieLoop
                 return;
             lobby.SetActive(false);
             equipment!.Open();
+        }
+
+        private void OpenCatalog()
+        {
+            if (active != null || returning || !lobby.activeSelf || !lifecycle.IsAvailable)
+                return;
+            lobby.SetActive(false);
+            catalogList.Open();
+        }
+
+        private SaveSnapshot? ReadCatalogSnapshot()
+        {
+            try
+            {
+                // The read-only roster can interpret saved entries beyond the loaded combat definitions.
+                return store.Load();
+            }
+            catch (Exception error) when (error is IOException || error is InvalidDataException
+                || error is UnauthorizedAccessException)
+            {
+                return null;
+            }
         }
 
         private bool IsWarehouseOpen => active == null && !returning && warehouse.IsOpen;
@@ -271,12 +387,61 @@ namespace ProjectWeapon.SortieLoop
             profile = proposed;
             active = new ActiveSortie(run, countdown, Elapsed, start.Manifest);
             run.RunResultFinalized += FinishSortie;
+            var recovery = new RunRecoveryCoordinator(run, countdown.Extraction, store, definitions.ContainsKey,
+                (snapshot, id) => id.Value == start.Manifest.RunId && start.Manifest.MatchesReservations(snapshot.Weapons));
+            lifecycle.Initialize(recovery, () => ActiveRoom?.DrainAcceptedDodgeSignals() ?? Array.Empty<RunSignal>(), HasLiveWorld);
             return start;
+        }
+
+        private bool HasLiveWorld() => active is { } sortie && (!sortie.HasEntered || ActiveRoom != null);
+
+        private void HandleRecovery(RunRecoveryResult recovery)
+        {
+            if (active == null || returning)
+                return;
+
+            ActiveRoom?.SetRecoveryBlocked(lifecycle.IsGameplayBlocked);
+            recoveryPending = recovery.Status == RunRecoveryStatus.RecoveryPending;
+            RefreshCombatHud();
+            switch (recovery.Status)
+            {
+                case RunRecoveryStatus.Resumed:
+                    if (ActiveRoom != null)
+                    {
+                        retry.gameObject.SetActive(false);
+                        loading.gameObject.SetActive(false);
+                    }
+                    else if (roomLoad == null)
+                    {
+                        OfferRoomRetry();
+                    }
+                    break;
+                case RunRecoveryStatus.Finalized when lifecycle.IsAvailable:
+                    if (active.Result != null)
+                        SettleActive();
+                    break;
+                case RunRecoveryStatus.Settled when recovery.Receipt is { } receipt:
+                    active.Receipt = receipt;
+                    RemoveCombatHud();
+                    if (active.Result == null)
+                        lifecycle.ClearRun();
+                    retry.gameObject.SetActive(false);
+                    loading.gameObject.SetActive(false);
+                    results.ShowReceipt(receipt);
+                    break;
+                case RunRecoveryStatus.RecoveryPending:
+                    retryLabel.text = "복구 다시 시도";
+                    retry.gameObject.SetActive(lifecycle.IsAvailable);
+                    loading.text = "저장 복구 대기";
+                    loading.gameObject.SetActive(true);
+                    break;
+            }
         }
 
         private void LoadRoom()
         {
-            if (active == null || active.Result != null || active.HasEntered || roomLoad != null || roomScene.isLoaded || cleaningFailedLoad)
+            if (active == null || lifecycle.IsGameplayBlocked || active.Result != null || active.Receipt != null || active.HasEntered
+                || roomLoad != null || roomScene.isLoaded || cleaningFailedLoad)
                 return;
 
             retry.gameObject.SetActive(false);
@@ -290,7 +455,9 @@ namespace ProjectWeapon.SortieLoop
                     roomLoad.completed += _ =>
                     {
                         roomLoad = null;
-                        if (ActiveRoom == null && !cleaningFailedLoad)
+                        if (returning && !roomScene.isLoaded && !cleaningFailedLoad)
+                            FinishReturning();
+                        else if (ActiveRoom == null && !cleaningFailedLoad)
                             OfferRoomRetry();
                     };
                     return;
@@ -316,13 +483,19 @@ namespace ProjectWeapon.SortieLoop
                     .SingleOrDefault(candidate => candidate != null);
                 if (room == null)
                     throw new InvalidOperationException("The loaded validation scene has no room host.");
+                if (returning || active.Result != null || active.Receipt != null)
+                    throw new InvalidOperationException("The reserved run ended before its room loaded.");
 
                 WeaponInstance equipped = active.Manifest.Equipped[0];
                 definitions.TryGetValue(equipped.DefinitionId, out WeaponDefinition definition);
                 room.BindRun(active.Run, active.Countdown, active.Clock, active.Field, definition);
+                BindCombatHud(room, active);
                 ActiveRoom = room;
                 active.HasEntered = true;
-                loading.gameObject.SetActive(false);
+                room.SetRecoveryBlocked(lifecycle.IsGameplayBlocked);
+                RefreshCombatHud();
+                if (!recoveryPending)
+                    loading.gameObject.SetActive(false);
                 return;
             }
             catch (InvalidOperationException)
@@ -334,6 +507,7 @@ namespace ProjectWeapon.SortieLoop
                 // A bind failure must never replace the previously saved run with a fresh one.
             }
 
+            RemoveCombatHud();
             if (room != null)
                 room.enabled = false;
             cleaningFailedLoad = true;
@@ -342,7 +516,9 @@ namespace ProjectWeapon.SortieLoop
 
         private void OfferRoomRetry()
         {
-            if (active == null || active.Result != null)
+            if (active == null || active.Result != null || active.Receipt != null)
+                return;
+            if (lifecycle.IsGameplayBlocked)
                 return;
             if (active.HasEntered)
             {
@@ -360,7 +536,11 @@ namespace ProjectWeapon.SortieLoop
 
         private void RetryActive()
         {
-            if (active?.Result != null)
+            if (!lifecycle.IsAvailable)
+                return;
+            if (recoveryPending && active?.Run.CurrentRun is { } session)
+                lifecycle.Reconnect(session.Id);
+            else if (active?.Result != null)
                 SettleActive();
             else
                 LoadRoom();
@@ -368,25 +548,27 @@ namespace ProjectWeapon.SortieLoop
 
         private void FinishSortie(RunResult result)
         {
-            if (active == null || active.Result != null || result.RunId != active.Run.CurrentRun?.Id)
+            if (active == null || active.Result != null || active.Receipt != null || result.RunId != active.Run.CurrentRun?.Id)
                 return;
 
             active.Result = result;
             active.HeldAtEnd = active.Field.Snapshot();
+            RemoveCombatHud();
             ActiveRoom?.StopMovement();
-            SettleActive();
+            if (!lifecycle.IsGameplayBlocked)
+                SettleActive();
         }
 
         private void SettleActive()
         {
-            if (active?.Result is not { } result || active.HeldAtEnd == null || returning)
+            if (active?.Result is not { } result || active.HeldAtEnd == null || returning || recoveryPending)
                 return;
 
             RunSettlementCommit? commit = null;
             try
             {
                 commit = new RunSettlementCoordinator(store).TrySettle(result, active.Manifest, active.HeldAtEnd,
-                    active.Wallet);
+                    active.Wallet, requireExactReservations: true);
             }
             catch (IOException)
             {
@@ -415,6 +597,8 @@ namespace ProjectWeapon.SortieLoop
             returning = true;
             loading.text = "로비로 이동 중";
             loading.gameObject.SetActive(true);
+            if (roomLoad != null || cleaningFailedLoad)
+                return;
             if (!roomScene.isLoaded)
             {
                 FinishReturning();
@@ -433,6 +617,7 @@ namespace ProjectWeapon.SortieLoop
             if (scene != roomScene)
                 return;
 
+            RemoveCombatHud();
             roomScene = default;
             ActiveRoom = null;
             cleaningFailedLoad = false;
@@ -444,8 +629,11 @@ namespace ProjectWeapon.SortieLoop
 
         private void FinishReturning()
         {
+            lifecycle.ClearRun();
+            recoveryPending = false;
             active!.Run.RunResultFinalized -= FinishSortie;
-            active.Run.TryReturnToTown(active.Result!.RunId);
+            if (active.Result is { } result)
+                active.Run.TryReturnToTown(result.RunId);
             active = null;
             ActiveRoom = null;
             returning = false;

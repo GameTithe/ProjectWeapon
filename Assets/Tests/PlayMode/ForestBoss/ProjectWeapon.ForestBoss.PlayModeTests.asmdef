@@ -1,0 +1,18 @@
+{
+    "name": "ProjectWeapon.ForestBoss.PlayModeTests",
+    "rootNamespace": "ProjectWeapon.ForestBoss.Tests",
+    "references": [
+        "ProjectWeapon.ForestBoss",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Zone3Forest",
+        "Unity.InputSystem"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

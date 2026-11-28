@@ -25,6 +25,8 @@ namespace ProjectWeapon.Run
         public RunPhase Phase { get; private set; } = RunPhase.Town;
         public RunSession? CurrentRun { get; private set; }
         public ExtractionAttempt? ActiveExtraction { get; private set; }
+        /// <summary>The accepted reason, visible until the next attempt or terminal run result.</summary>
+        public ExtractionCancellation? LastExtractionCancellation { get; private set; }
         public RunResult? Result { get; private set; }
 
         public event Action<RunResult>? RunResultFinalized;
@@ -59,6 +61,7 @@ namespace ProjectWeapon.Run
 
             var attempt = new ExtractionAttempt(checked(++lastAttemptId), now, now + ExtractionDuration);
             ActiveExtraction = attempt;
+            LastExtractionCancellation = null;
             Phase = RunPhase.Extracting;
             return attempt;
         }
@@ -80,11 +83,36 @@ namespace ProjectWeapon.Run
             if (session == null || Result != null)
                 return Result;
 
-            TimeSpan now = ReadTime();
+            return ProcessFrame(session, signals, scheduledSignal, ReadTime(), interrupt: false);
+        }
+
+        /// <summary>Processes an interrupted or resumed frame with the same monotonic run clock.</summary>
+        public bool TryProcessRecoveryFrame(IEnumerable<RunSignal> signals,
+            Func<TimeSpan, RunSignal?>? scheduledSignal, bool interrupt, out RunResult? result)
+        {
+            if (signals == null)
+                throw new ArgumentNullException(nameof(signals));
+            result = Result;
+            if (CurrentRun is not { } session || result != null)
+                return true;
+            TimeSpan now = readClock();
+            if (now < lastObservedTime)
+                return false;
+
+            lastObservedTime = now;
+            result = ProcessFrame(session, signals, scheduledSignal, now, interrupt);
+            return true;
+        }
+
+        private RunResult? ProcessFrame(RunSession session, IEnumerable<RunSignal> signals,
+            Func<TimeSpan, RunSignal?>? scheduledSignal, TimeSpan now, bool interrupt)
+        {
             IEnumerable<RunSignal> frame = signals;
             RunSignal? scheduled = scheduledSignal?.Invoke(now);
             if (scheduled.HasValue)
                 frame = frame.Append(scheduled.Value);
+            if (interrupt && ActiveExtraction is { } attempt)
+                frame = frame.Append(RunSignal.CancelExtraction(session.Id, attempt.Id, now));
             if (now >= session.Deadline)
                 frame = frame.Append(RunSignal.DeadlineReached(session.Id, session.Deadline));
 
@@ -109,6 +137,8 @@ namespace ProjectWeapon.Run
                     case RunSignalKind.PlayerDied when signal.EffectiveAt < session.Deadline:
                         return FinalizeResult(session, RunEndReason.Death, signal.EffectiveAt);
                     case RunSignalKind.ExtractionCancelled when MatchesActiveExtraction(signal):
+                        LastExtractionCancellation = new ExtractionCancellation(session.Id, signal.AttemptId,
+                            signal.CancelReason, signal.EffectiveAt);
                         ActiveExtraction = null;
                         Phase = RunPhase.Exploring;
                         break;
@@ -120,6 +150,36 @@ namespace ProjectWeapon.Run
             }
 
             return null;
+        }
+
+        /// <summary>Captures the run timeline and last attempt ID. No attempt is resumed from a checkpoint.</summary>
+        public RunCheckpoint? GetRecoveryCheckpoint() => CurrentRun is { } session
+            ? new RunCheckpoint(session.Id, session.ZoneId, session.StartedAt, session.Deadline, lastObservedTime,
+                lastAttemptId, Result?.Reason, Result?.EffectiveAt)
+            : null;
+
+        /// <summary>Rehydrates a checkpoint verified by the owner of the full run state.</summary>
+        public bool TryRestoreVerifiedCheckpoint(RunCheckpoint checkpoint, TimeSpan verifiedNow)
+        {
+            if (Phase != RunPhase.Town || !checkpoint.IsValid || usedRunIds.Contains(checkpoint.RunId)
+                || verifiedNow < checkpoint.ObservedAt)
+                return false;
+            TimeSpan now = readClock();
+            if (now < lastObservedTime || now < verifiedNow)
+                return false;
+
+            var session = new RunSession(checkpoint.RunId, checkpoint.ZoneId, checkpoint.StartedAt, checkpoint.Deadline);
+            usedRunIds.Add(session.Id);
+            CurrentRun = session;
+            processedThrough = now;
+            lastObservedTime = now;
+            lastAttemptId = checkpoint.LastAttemptId;
+            Phase = RunPhase.Exploring;
+            if (checkpoint.Reason is { } reason && checkpoint.EffectiveAt is { } effectiveAt)
+                FinalizeResult(session, reason, effectiveAt);
+            else if (now >= session.Deadline)
+                FinalizeResult(session, RunEndReason.TimeExpired, session.Deadline);
+            return true;
         }
 
         // The caller decides when settlement/UI allows the completed run to leave the results screen.
@@ -157,6 +217,7 @@ namespace ProjectWeapon.Run
         {
             var result = new RunResult(session, reason, effectiveAt);
             ActiveExtraction = null;
+            LastExtractionCancellation = null;
             Result = result;
             Phase = result.Succeeded ? RunPhase.Succeeded : RunPhase.Failed;
             RunResultFinalized?.Invoke(result);
