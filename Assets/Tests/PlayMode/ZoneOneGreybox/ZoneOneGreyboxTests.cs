@@ -90,6 +90,8 @@ namespace ProjectWeapon.ZoneOneGreybox.Tests
             SendKeyboard(Key.E);
             yield return null;
             Assert.That(preview.Phase, Is.EqualTo(RunPhase.Extracting));
+            Assert.That(preview.Encounter.Boss.Boss!.Health, Is.EqualTo(90));
+            Assert.That(preview.Encounter.Boss.Boss.ActiveCast, Is.Null);
             SendKeyboard();
         }
 
@@ -115,6 +117,8 @@ namespace ProjectWeapon.ZoneOneGreybox.Tests
         {
             ZoneOneEncounter encounter = preview.Encounter;
             Assert.That(encounter, Is.Not.Null);
+            int bossDefeats = 0;
+            encounter.Boss.Boss!.Defeated += (_, _, _) => bossDefeats++;
             Assert.That(encounter.Melee.transform.position, Is.EqualTo(new Vector3(4.5f, 5.5f, 0f)));
             Assert.That(encounter.Ranged.transform.position, Is.EqualTo(new Vector3(11.5f, 6.4f, 0f)));
             Assert.That(encounter.Chest.transform.position, Is.EqualTo(new Vector3(10.5f, 2.5f, 0f)));
@@ -184,6 +188,8 @@ namespace ProjectWeapon.ZoneOneGreybox.Tests
             while (preview.Phase == RunPhase.Extracting && Time.time < by)
                 yield return null;
             Assert.That(preview.Phase, Is.EqualTo(RunPhase.Succeeded));
+            Assert.That(encounter.Boss.Boss!.Health, Is.EqualTo(90));
+            Assert.That(bossDefeats, Is.Zero);
         }
 
         [UnityTest]

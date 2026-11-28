@@ -7,6 +7,7 @@ using ProjectWeapon.AutoAttack;
 using ProjectWeapon.Combat;
 using ProjectWeapon.Dungeon;
 using ProjectWeapon.Enemies;
+using ProjectWeapon.Enemies.Boss;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Loot;
 using ProjectWeapon.ManualSkill;
@@ -33,6 +34,7 @@ namespace ProjectWeapon.ZoneOneGreybox
         [SerializeField] private MeleeEnemySettings meleeSettings = null!;
         [SerializeField] private RangedEnemyActor ranged = null!;
         [SerializeField] private RangedEnemySettings rangedSettings = null!;
+        [SerializeField] private BossShockwaveActor boss = null!;
         [SerializeField] private FixedLootChest chest = null!;
         [SerializeField] private LootPickupTrigger pickup = null!;
         [SerializeField] private Collider2D walls = null!;
@@ -41,7 +43,7 @@ namespace ProjectWeapon.ZoneOneGreybox
         [SerializeField] private LineRenderer rangedWarning = null!;
 
         private readonly List<RaycastHit2D> wallHits = new List<RaycastHit2D>();
-        private readonly TargetCandidate[] enemies = new TargetCandidate[2];
+        private readonly TargetCandidate[] enemies = new TargetCandidate[3];
         private readonly List<RunSignal> frameSignals = new List<RunSignal>();
         private readonly List<(DamageRequest Hit, TimeSpan EffectiveAt)> damageEvents = new List<(DamageRequest, TimeSpan)>();
         private readonly PlayerHealth health = new PlayerHealth(100);
@@ -60,6 +62,7 @@ namespace ProjectWeapon.ZoneOneGreybox
 
         public MeleeEnemyActor Melee => melee;
         public RangedEnemyActor Ranged => ranged;
+        public BossShockwaveActor Boss => boss;
         public FixedLootChest Chest => chest;
         public PlayerHealth Health => health;
         public int PlayerHealth => health.CurrentHealth;
@@ -88,6 +91,8 @@ namespace ProjectWeapon.ZoneOneGreybox
 
             melee.Initialize(MeleeId, meleeSettings);
             ranged.Initialize(RangedId, rangedSettings);
+            boss.Initialize(run);
+            boss.Boss!.ShockwaveResolved += (_, hits, effectiveAt) => RecordDamage(hits, effectiveAt);
             melee.Brain.AttackResolved += (attack, hits) => RecordDamage(hits, attack.HitsAt);
             ranged.Brain.AttackResolved += (attack, hits) => RecordDamage(hits, attack.HitsAt);
             melee.Brain.Died += _ => meleeVisual.color = Color.gray;
@@ -114,6 +119,7 @@ namespace ProjectWeapon.ZoneOneGreybox
             Vector2 origin = player.position;
             enemies[0] = ReadMeleeTarget(origin);
             enemies[1] = ReadRangedTarget(origin);
+            enemies[2] = ReadBossTarget(origin);
             return enemies;
         }
 
@@ -148,6 +154,7 @@ namespace ProjectWeapon.ZoneOneGreybox
                 meleeBody.linearVelocity = Vector2.zero;
                 meleeWarning.enabled = false;
                 rangedWarning.enabled = false;
+                boss.Advance(now, default);
                 return frameSignals;
             }
 
@@ -160,6 +167,9 @@ namespace ProjectWeapon.ZoneOneGreybox
             if (now < current.Deadline || ranged.Brain.ActiveAttack.HasValue)
                 ranged.Advance(now, new TargetCandidate(PlayerId, Point(point), alive,
                     HasClearPath(ranged.transform.position, point)));
+
+            boss.Advance(now, new TargetCandidate(PlayerId, Point(point), alive,
+                HasClearPath(boss.transform.position, point)));
 
             damageEvents.Sort((first, second) => first.EffectiveAt.CompareTo(second.EffectiveAt));
             foreach ((DamageRequest hit, TimeSpan effectiveAt) in damageEvents)
@@ -179,6 +189,7 @@ namespace ProjectWeapon.ZoneOneGreybox
 
             enemies[0] = ReadMeleeTarget(origin);
             enemies[1] = ReadRangedTarget(origin);
+            enemies[2] = ReadBossTarget(origin);
             attacks.TryAttack(now, Point(origin), weapon, enemies);
         }
 
@@ -193,6 +204,13 @@ namespace ProjectWeapon.ZoneOneGreybox
                 HasClearPath(origin, position));
         }
 
+        private TargetCandidate ReadBossTarget(Vector2 origin)
+        {
+            Vector2 position = boss.transform.position;
+            BossShockwave target = boss.Boss!;
+            return new TargetCandidate(target.TargetId, Point(position), !target.IsDead, HasClearPath(origin, position));
+        }
+
         private void AdvanceDagger(TimeSpan now, Vector2 origin)
         {
             if (activeFlurry is not { } flurry)
@@ -202,9 +220,13 @@ namespace ProjectWeapon.ZoneOneGreybox
             {
                 TargetCandidate target = default;
                 if (now >= due)
-                    target = StringComparer.Ordinal.Equals(flurry.TargetId, MeleeId)
-                        ? ReadMeleeTarget(origin)
-                        : ReadRangedTarget(origin);
+                    target = flurry.TargetId switch
+                    {
+                        MeleeId => ReadMeleeTarget(origin),
+                        RangedId => ReadRangedTarget(origin),
+                        _ when StringComparer.Ordinal.Equals(flurry.TargetId, boss.Boss!.TargetId) => ReadBossTarget(origin),
+                        _ => default
+                    };
 
                 if (!flurry.TryResolveNext(run, now, Point(origin), target, out DaggerStrike strike))
                     break;
@@ -255,6 +277,8 @@ namespace ProjectWeapon.ZoneOneGreybox
                 melee.ApplyDamage(hit, effectiveAt);
             else if (StringComparer.Ordinal.Equals(hit.TargetId, RangedId))
                 ranged.ApplyDamage(hit, effectiveAt);
+            else if (StringComparer.Ordinal.Equals(hit.TargetId, boss.Boss!.TargetId))
+                boss.ApplyDamage(hit, effectiveAt);
         }
 
         private bool CanCollect() => !recoveryBlocked && run.Phase == RunPhase.Exploring
