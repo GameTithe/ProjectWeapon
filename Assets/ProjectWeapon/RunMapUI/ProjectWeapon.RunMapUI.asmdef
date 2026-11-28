@@ -1,0 +1,10 @@
+{
+    "name": "ProjectWeapon.RunMapUI",
+    "rootNamespace": "ProjectWeapon.RunMapUI",
+    "references": [
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Run",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ]
+}

@@ -1,0 +1,7 @@
+{
+    "name": "ProjectWeapon.RunMapUI.Tests",
+    "rootNamespace": "ProjectWeapon.RunMapUI.Tests",
+    "references": ["ProjectWeapon.Dungeon", "ProjectWeapon.Run", "ProjectWeapon.RunMapUI", "UnityEngine.UI"],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
