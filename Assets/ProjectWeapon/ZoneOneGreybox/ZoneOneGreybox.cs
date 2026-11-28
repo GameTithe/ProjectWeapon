@@ -32,6 +32,8 @@ namespace ProjectWeapon.ZoneOneGreybox
         private readonly List<RunSignal> frameSignals = new List<RunSignal>();
         private PlayerMovement? movement;
         private Func<TimeSpan> readTime = null!;
+        private bool recoveryBlocked;
+        private bool restoreMovement;
 
         public ZoneDefinition Zone => catalog.GetZone(1);
         public Rigidbody2D Player => player;
@@ -40,7 +42,7 @@ namespace ProjectWeapon.ZoneOneGreybox
         public float ExtractionRadius => extractionRadius;
         public RunPhase Phase => run.Phase;
         public RunState Run => run;
-        public bool CanStartExtraction => access.CanStart(runId, PlayerPoint());
+        public bool CanStartExtraction => !recoveryBlocked && access.CanStart(runId, PlayerPoint());
 
         private void Start()
         {
@@ -84,8 +86,30 @@ namespace ProjectWeapon.ZoneOneGreybox
             player.linearVelocity = Vector2.zero;
         }
 
+        public void SetRecoveryBlocked(bool blocked)
+        {
+            if (recoveryBlocked == blocked)
+                return;
+
+            recoveryBlocked = blocked;
+            if (encounter)
+                encounter.SetRecoveryBlocked(blocked);
+            if (blocked)
+            {
+                restoreMovement = movement != null && movement.enabled;
+                StopMovement();
+            }
+            else if (restoreMovement && movement != null && run.Result == null)
+            {
+                movement.enabled = true;
+            }
+        }
+
         private void Update()
         {
+            if (recoveryBlocked)
+                return;
+
             TimeSpan now = readTime();
             float move = movement?.SampleDirection().magnitude ?? 0f;
             bool wantsChest = interact?.WasPressedThisFrame() == true
@@ -113,7 +137,7 @@ namespace ProjectWeapon.ZoneOneGreybox
             };
         }
 
-        public bool TryStartExtraction() => access.TryStart(runId, PlayerPoint()) != null;
+        public bool TryStartExtraction() => !recoveryBlocked && access.TryStart(runId, PlayerPoint()) != null;
 
         private WorldPoint2D PlayerPoint()
         {
