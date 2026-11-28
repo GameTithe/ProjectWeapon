@@ -51,6 +51,7 @@ namespace ProjectWeapon.CombatHud
         private bool lostFocus;
 
         public VirtualJoystick Joystick { get; private set; } = null!;
+        public RectTransform SafeAreaRoot => safeRoot;
         public bool IsAiming => drag.IsAiming;
 
         public static CombatActionHud Create(Canvas canvas, VirtualJoystick joystickPrefab, TMP_FontAsset font,
