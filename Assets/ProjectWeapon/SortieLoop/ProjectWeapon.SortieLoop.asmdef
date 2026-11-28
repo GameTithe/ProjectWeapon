@@ -2,6 +2,7 @@
     "name": "ProjectWeapon.SortieLoop",
     "rootNamespace": "ProjectWeapon.SortieLoop",
     "references": [
+        "ProjectWeapon.CatalogUI",
         "ProjectWeapon.Dungeon",
         "ProjectWeapon.Extraction",
         "ProjectWeapon.Inventory",
