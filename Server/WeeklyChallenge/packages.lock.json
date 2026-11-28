@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "Com.Unity.Services.CloudCode.Apis": {
+        "type": "Direct",
+        "requested": "[0.0.27, )",
+        "resolved": "0.0.27",
+        "contentHash": "w7Q/Ki0qyDLx6ugl6OLLB1pEPjQ5YrIk9UTeLOtWAiH1iYQsIpZezR95Fk/gtUbeKl5ECm1BYL0wXIaSv7XEHg==",
+        "dependencies": {
+          "Com.Unity.Services.CloudCode.Core": "0.0.7",
+          "Newtonsoft.Json": "13.0.3"
+        }
+      },
+      "Com.Unity.Services.CloudCode.Core": {
+        "type": "Direct",
+        "requested": "[0.0.7, )",
+        "resolved": "0.0.7",
+        "contentHash": "K06SjgdmjZQvty/ORsS0O/sJr2uv1BbmrOO7nn8Yj2x/gERAZgDteFTEl730CnM2WoEjiagY/psPA+yz+cxA9A==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2",
+          "Newtonsoft.Json": "13.0.3"
+        }
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
+        "type": "Transitive",
+        "resolved": "8.0.2",
+        "contentHash": "3iE7UF7MQkCv1cxzCahz+Y/guQbTqieyxyaWKhrRO91itI9cOKO76OHeQDahqG4MmW5umr3CcCvGmK92lWNlbg=="
+      },
+      "Newtonsoft.Json": {
+        "type": "Transitive",
+        "resolved": "13.0.3",
+        "contentHash": "HrC5BXdl00IP9zeV+0Z848QWPAoCr9P3bDEZguI+gkLcBKAOxix/tLEAAHC+UvDNPv4a2d18lOReHMOagPa+zQ=="
+      }
+    },
+    "net10.0/linux-x64": {}
+  }
+}
