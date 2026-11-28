@@ -1,0 +1,10 @@
+{
+    "name": "ProjectWeapon.ExtractionUI",
+    "rootNamespace": "ProjectWeapon.ExtractionUI",
+    "references": [
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Run",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ]
+}
