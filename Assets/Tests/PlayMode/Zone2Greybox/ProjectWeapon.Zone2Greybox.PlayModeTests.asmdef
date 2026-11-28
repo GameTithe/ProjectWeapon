@@ -13,6 +13,7 @@
         "ProjectWeapon.Dungeon",
         "ProjectWeapon.Extraction",
         "ProjectWeapon.Movement",
+        "ProjectWeapon.PrisonGuard",
         "ProjectWeapon.Run",
         "Unity.InputSystem"
     ],
