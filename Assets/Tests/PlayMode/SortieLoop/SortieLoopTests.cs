@@ -896,7 +896,7 @@ namespace ProjectWeapon.SortieLoop.Tests
             yield return Tap(5, ButtonNamed("Weapon Slot 2"));
             Assert.That(ButtonNamed("Weapon Slot 2").interactable, Is.False);
             Assert.That(ButtonNamed("Weapon Slot 1").interactable, Is.True);
-            Assert.That(ButtonNamed("Skill").interactable, Is.False);
+            Assert.That(ButtonNamed("Skill").interactable, Is.True);
             Assert.That(room.Encounter.Ranged.Brain.CurrentHealth, Is.EqualTo(before - 10f));
 
             yield return Tap(6, ButtonNamed("Weapon Slot 1"));
