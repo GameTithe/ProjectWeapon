@@ -1,0 +1,17 @@
+{
+    "name": "ProjectWeapon.SettlementUI.Tests",
+    "rootNamespace": "ProjectWeapon.SettlementUI.Tests",
+    "references": [
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement",
+        "ProjectWeapon.SettlementUI",
+        "ProjectWeapon.Wallet",
+        "ProjectWeapon.Weapons",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
