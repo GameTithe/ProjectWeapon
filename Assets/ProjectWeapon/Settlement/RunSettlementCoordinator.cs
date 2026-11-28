@@ -54,7 +54,7 @@ namespace ProjectWeapon.Settlement
         }
 
         public RunSettlementCommit TrySettle(RunResult run, SortieManifest manifest,
-            IReadOnlyList<WeaponInstance> heldAtEnd, RunCoinAccumulator wallet)
+            IReadOnlyList<WeaponInstance> heldAtEnd, RunCoinAccumulator wallet, bool requireExactReservations = false)
         {
             if (run == null)
                 throw new ArgumentNullException(nameof(run));
@@ -72,6 +72,8 @@ namespace ProjectWeapon.Settlement
                 return new RunSettlementCommit(RunSettlementStatus.MissingSave, null);
             if (ReadExisting(current, run) is RunSettlementCommit existing)
                 return existing;
+            if (requireExactReservations && !manifest.MatchesReservations(current.Weapons))
+                return new RunSettlementCommit(RunSettlementStatus.RetryRequired, current);
 
             RunCoinSettlementProposal coins = wallet.ProposeSettlement(new WalletBalance(current.ConfirmedCoins), run);
             SaveSnapshot candidate = BuildCandidate(current, run, manifest, heldAtEnd.ToArray(), coins);
@@ -90,6 +92,8 @@ namespace ProjectWeapon.Settlement
             IReadOnlyList<WeaponInstance> nextWeapons;
             IReadOnlyList<CatalogSaveRecord> nextCatalog;
             RunSettlementDetails details;
+            long nextBalance = coins.ResultingBalance.ConfirmedCoins;
+            IReadOnlyList<CatalogMilestoneSaveRecord> milestones = current.CatalogMilestones;
             int warehouseCount = current.Weapons.Count(item => item.Location.Kind == WeaponLocationKind.Warehouse);
             if (run.Succeeded)
             {
@@ -103,6 +107,12 @@ namespace ProjectWeapon.Settlement
                         catalogRecoveries.Add(weapon.DefinitionId.Value);
                 }
                 nextCatalog = catalog.ToSaveRecords();
+                IReadOnlyList<CatalogMilestoneSaveRecord> unpaid = CatalogMilestoneRewards.Unpaid(run, catalog, milestones);
+                if (unpaid.Count > 0)
+                {
+                    nextBalance = checked(nextBalance + unpaid.Sum(item => item.AwardedCoins));
+                    milestones = milestones.Concat(unpaid).ToArray();
+                }
                 details = new RunSettlementDetails(coins, manifest, recovered.RecoveredWeapons,
                     recovered.AbandonedPackedWeapons, recovered.ReturnedLoans, catalogRecoveries, warehouseCount);
             }
@@ -116,8 +126,8 @@ namespace ProjectWeapon.Settlement
             }
 
             var receipt = new SettlementSaveRecord(run.RunId.Value, "RunSettlement:" + run.RunId, details.Encode());
-            return new SaveSnapshot(checked(current.Revision + 1), coins.ResultingBalance.ConfirmedCoins, nextWeapons,
-                nextCatalog, current.Settlements.Append(receipt), current.CoinWeaponDraws);
+            return current.Next(nextBalance, weapons: nextWeapons, catalog: nextCatalog,
+                settlements: current.Settlements.Append(receipt), catalogMilestones: milestones);
         }
 
         private static IReadOnlyList<WeaponInstance> ApplySuccessfulRecovery(SaveSnapshot current, SortieManifest manifest,
