@@ -9,8 +9,11 @@ using ProjectWeapon.Dungeon;
 using ProjectWeapon.Enemies;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Loot;
+using ProjectWeapon.ManualSkill;
+using ProjectWeapon.OldSwordSkill;
 using ProjectWeapon.Player;
 using ProjectWeapon.Run;
+using ProjectWeapon.WeaponSwitch;
 using ProjectWeapon.Weapons;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -89,6 +92,34 @@ namespace ProjectWeapon.ZoneOneGreybox
             melee.Brain.Died += _ => meleeVisual.color = Color.gray;
             ranged.Brain.Died += _ => rangedVisual.color = Color.gray;
             attacks = new AutoAttackScheduler(run, TrySwing, initiallyEnabled: true, isDodging);
+        }
+
+        /// <summary>Shares the equipped selection and live encounter targets with the room's manual input.</summary>
+        public ManualSkillExecutor BindPlayerEquipment(EquippedWeaponSelection equipment, Func<bool> isDodging)
+        {
+            weapon = equipment.ReadActiveWeapon()?.Definition;
+            equipment.ActiveSlotChanged += selected => weapon = selected.Definition;
+            var skill = new OldSwordWideSlashEffect(ReadManualTargets, ApplyManualSlash);
+            return new ManualSkillExecutor(run, equipment, skill, isDodging, _ => null, PlayerId);
+        }
+
+        public bool IsWeaponActionBusy => run.Phase == RunPhase.Exploring
+            && activeFlurry is { IsFinished: false };
+
+        public static bool SupportsManualSkill(ManualSkillPattern pattern) => pattern is OldSwordWideSlashPattern;
+
+        private IReadOnlyList<TargetCandidate> ReadManualTargets()
+        {
+            Vector2 origin = player.position;
+            enemies[0] = ReadMeleeTarget(origin);
+            enemies[1] = ReadRangedTarget(origin);
+            return enemies;
+        }
+
+        private void ApplyManualSlash(OldSwordWideSlashStrike slash)
+        {
+            foreach (DamageRequest hit in slash.Hits)
+                HitEnemy(hit, slash.EffectiveAt);
         }
 
         public bool TryOpenChest()
