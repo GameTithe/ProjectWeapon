@@ -203,7 +203,7 @@ namespace ProjectWeapon.SortieLoop
                 return start;
 
             SaveSnapshot proposed = new SaveSnapshot(checked(profile.Revision + 1), profile.ConfirmedCoins,
-                proposedTown.Snapshot(), profile.Catalog, profile.Settlements, profile.CoinWeaponDraws);
+                proposedTown.Snapshot(), profile.Catalog, profile.Settlements, profile.CoinWeaponDraws, profile.WeaponSales);
             try
             {
                 SnapshotCommitResult commit = store.Commit(profile.Revision, proposed);

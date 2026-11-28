@@ -117,7 +117,7 @@ namespace ProjectWeapon.Settlement
 
             var receipt = new SettlementSaveRecord(run.RunId.Value, "RunSettlement:" + run.RunId, details.Encode());
             return new SaveSnapshot(checked(current.Revision + 1), coins.ResultingBalance.ConfirmedCoins, nextWeapons,
-                nextCatalog, current.Settlements.Append(receipt), current.CoinWeaponDraws);
+                nextCatalog, current.Settlements.Append(receipt), current.CoinWeaponDraws, current.WeaponSales);
         }
 
         private static IReadOnlyList<WeaponInstance> ApplySuccessfulRecovery(SaveSnapshot current, SortieManifest manifest,
