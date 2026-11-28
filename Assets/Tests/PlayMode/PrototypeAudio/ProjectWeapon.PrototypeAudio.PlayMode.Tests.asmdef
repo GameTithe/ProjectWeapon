@@ -1,0 +1,6 @@
+{
+    "name": "ProjectWeapon.PrototypeAudio.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.PrototypeAudio.Tests",
+    "references": ["ProjectWeapon.PrototypeAudio", "ProjectWeapon.Run"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

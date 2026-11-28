@@ -1,0 +1,5 @@
+{
+    "name": "ProjectWeapon.PrototypeAudio",
+    "rootNamespace": "ProjectWeapon.PrototypeAudio",
+    "references": ["ProjectWeapon.Run"]
+}
