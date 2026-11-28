@@ -37,6 +37,21 @@ namespace ProjectWeapon.Extraction
 
         public event Action<ExtractionChannelProgress?>? ProgressChanged;
 
+        /// <summary>Collects cancellation from valid input even when collision prevents movement.</summary>
+        public RunSignal? ObserveMovement(float acceptedMoveMagnitude, TimeSpan effectiveAt)
+            => ExtractionAccess.HasCancelMovement(acceptedMoveMagnitude) && run.CurrentRun is { } session
+                ? CreateCancellation(session.Id, effectiveAt)
+                : null;
+
+        /// <summary>Call with an accepted dodge event and pass the result into the same frame as damage.</summary>
+        public RunSignal? ObserveAcceptedDodge(RunId runId, TimeSpan effectiveAt)
+            => run.CurrentRun?.Id == runId ? CreateCancellation(runId, effectiveAt) : null;
+
+        private RunSignal? CreateCancellation(RunId runId, TimeSpan effectiveAt)
+            => run.ActiveExtraction is { } attempt && effectiveAt >= attempt.StartedAt
+                ? RunSignal.CancelExtraction(runId, attempt.Id, effectiveAt)
+                : null;
+
         /// <summary>Resolves the complete frame, including scheduled completion when due.</summary>
         public RunResult? ProcessFrame(IEnumerable<RunSignal> frameSignals)
         {
