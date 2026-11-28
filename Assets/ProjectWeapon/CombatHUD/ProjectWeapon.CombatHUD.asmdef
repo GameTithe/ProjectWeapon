@@ -1,0 +1,12 @@
+{
+    "name": "ProjectWeapon.CombatHUD",
+    "rootNamespace": "ProjectWeapon.CombatHUD",
+    "references": [
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Weapons",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
+    ]
+}
