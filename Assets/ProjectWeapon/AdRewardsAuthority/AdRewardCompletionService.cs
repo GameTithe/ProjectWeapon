@@ -17,7 +17,8 @@ namespace ProjectWeapon.AdRewards
         ConflictingCompletion,
         RetryRequired,
         Granted,
-        AlreadyGranted
+        AlreadyGranted,
+        DailyLimitReached
     }
 
     public readonly struct AdRewardClaimResult
@@ -84,14 +85,21 @@ namespace ProjectWeapon.AdRewards
                 return new AdRewardClaimResult(AdRewardClaimStatus.RetryRequired);
             if (now >= reservation.AcceptUntilUtc)
                 return new AdRewardClaimResult(AdRewardClaimStatus.ExpiredReservation);
+            DateTime day = reservation.CreatedAtUtc.Date;
+            if (snapshot.ConfirmedUses(completion.AccountId, day) >= AdRewardReservationService.DailyLimit)
+                return new AdRewardClaimResult(AdRewardClaimStatus.DailyLimitReached);
 
             WeaponDrawResult reward = draw.Draw(nextExclusive);
             WeaponInstance weapon = WeaponInstance.Create(reward.DefinitionId, WeaponProvenance.Personal, WeaponLocation.Warehouse());
-            var grant = new AdRewardGrant(completion, reservation.CreatedAtUtc.Date, weapon);
+            var grant = new AdRewardGrant(completion, day, weapon);
             if (store.TryCommit(snapshot.Revision, grant))
                 return new AdRewardClaimResult(AdRewardClaimStatus.Granted, grant);
 
-            return CheckPriorGrant(ReadCurrentScope(), completion) ?? new AdRewardClaimResult(AdRewardClaimStatus.RetryRequired);
+            AdRewardAuthoritySnapshot latest = ReadCurrentScope();
+            return CheckPriorGrant(latest, completion)
+                ?? new AdRewardClaimResult(latest.ConfirmedUses(completion.AccountId, day) >= AdRewardReservationService.DailyLimit
+                    ? AdRewardClaimStatus.DailyLimitReached
+                    : AdRewardClaimStatus.RetryRequired);
         }
 
         private AdRewardAuthoritySnapshot ReadCurrentScope()
