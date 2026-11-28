@@ -17,6 +17,7 @@ using ProjectWeapon.Player;
 using ProjectWeapon.Run;
 using ProjectWeapon.WeaponSwitch;
 using ProjectWeapon.Weapons;
+using ProjectWeapon.WoodenSpearSkill;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -54,6 +55,7 @@ namespace ProjectWeapon.ZoneOneGreybox
         private Rigidbody2D meleeBody = null!;
         private AutoAttackScheduler attacks = null!;
         private DaggerFlurry? activeFlurry;
+        private WoodenSpearThrustEffect spearThrust = null!;
         private SpriteRenderer meleeVisual = null!;
         private SpriteRenderer rangedVisual = null!;
         private PlayerDodge? playerDodge;
@@ -74,6 +76,7 @@ namespace ProjectWeapon.ZoneOneGreybox
             Func<bool> isDodging, Func<TimeSpan> readTime, InventoryService field, WeaponDefinition? activeWeapon)
         {
             run = state;
+            spearThrust = new WoodenSpearThrustEffect(run);
             this.readTime = readTime;
             this.field = field ?? throw new ArgumentNullException(nameof(field));
             weapon = activeWeapon != null || field.Snapshot().Count > 0 ? activeWeapon : demoSword;
@@ -109,15 +112,16 @@ namespace ProjectWeapon.ZoneOneGreybox
             return new ManualSkillExecutor(run, equipment, this, isDodging, _ => null, PlayerId);
         }
 
-        public bool IsWeaponActionBusy => run.Phase == RunPhase.Exploring
-            && activeFlurry is { IsFinished: false };
+        public bool IsWeaponActionBusy => spearThrust.IsBusy
+            || (run.Phase == RunPhase.Exploring && activeFlurry is { IsFinished: false });
 
         public static bool SupportsManualSkill(ManualSkillPattern pattern)
-            => pattern is OldSwordWideSlashPattern or MaceShockwavePattern;
+            => pattern is OldSwordWideSlashPattern or MaceShockwavePattern or WoodenSpearThrustPattern;
 
-        private IReadOnlyList<TargetCandidate> ReadManualTargets()
+        private IReadOnlyList<TargetCandidate> ReadManualTargets() => ReadManualTargets(player.position);
+
+        private IReadOnlyList<TargetCandidate> ReadManualTargets(Vector2 origin)
         {
-            Vector2 origin = player.position;
             enemies[0] = ReadMeleeTarget(origin);
             enemies[1] = ReadRangedTarget(origin);
             enemies[2] = ReadBossTarget(origin);
@@ -126,6 +130,14 @@ namespace ProjectWeapon.ZoneOneGreybox
 
         bool IManualSkillEffect.TryStart(ManualSkillActivationRequest request)
         {
+            if (request.Pattern is WoodenSpearThrustPattern)
+            {
+                if (!spearThrust.TryStart(request))
+                    return false;
+                AdvanceSpearThrust(request.StartedAt);
+                return true;
+            }
+
             IReadOnlyList<DamageRequest>? hits = request.Pattern switch
             {
                 OldSwordWideSlashPattern sword when sword.TryCreateStrike(request, ReadManualTargets(), out var slash)
@@ -197,7 +209,7 @@ namespace ProjectWeapon.ZoneOneGreybox
         {
             Vector2 origin = player.position;
             AdvanceDagger(now, origin);
-            if (!attacks.IsEffective || activeFlurry != null)
+            if (AdvanceSpearThrust(now) || spearThrust.IsBusy || !attacks.IsEffective || activeFlurry != null)
                 return;
 
             enemies[0] = ReadMeleeTarget(origin);
@@ -222,6 +234,20 @@ namespace ProjectWeapon.ZoneOneGreybox
             Vector2 position = boss.transform.position;
             BossShockwave target = boss.Boss!;
             return new TargetCandidate(target.TargetId, Point(position), !target.IsDead, HasClearPath(origin, position));
+        }
+
+        private bool AdvanceSpearThrust(TimeSpan now)
+        {
+            bool resolved = false;
+            while (spearThrust.NextThrustAt is { } due && due <= now && spearThrust.PendingOrigin is { } lockedOrigin
+                && spearThrust.TryResolveNext(now, ReadManualTargets(new Vector2(lockedOrigin.X, lockedOrigin.Y)),
+                    out WoodenSpearStrike strike))
+            {
+                resolved = true;
+                if (strike.Hit is DamageRequest hit)
+                    HitEnemy(hit, strike.EffectiveAt);
+            }
+            return resolved;
         }
 
         private void AdvanceDagger(TimeSpan now, Vector2 origin)
