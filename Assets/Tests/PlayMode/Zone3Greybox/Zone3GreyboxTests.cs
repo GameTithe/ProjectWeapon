@@ -8,8 +8,11 @@ using NUnit.Framework;
 using ProjectWeapon.Combat;
 using ProjectWeapon.Dungeon;
 using ProjectWeapon.Extraction;
+using ProjectWeapon.Inventory;
+using ProjectWeapon.Loot;
 using ProjectWeapon.Movement;
 using ProjectWeapon.Run;
+using ProjectWeapon.Zone3Forest;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -33,6 +36,7 @@ namespace ProjectWeapon.Zone3Greybox.Tests
         private Rigidbody2D player = null!;
         private CircleCollider2D returnArea = null!;
         private ZoneCatalog catalog = null!;
+        private Zone3ForestTrial trial = null!;
         private InputSettings.UpdateMode previousUpdateMode;
         private InputSettings.BackgroundBehavior previousBackground;
         private InputSettings.EditorInputBehaviorInPlayMode previousEditorInput;
@@ -53,13 +57,21 @@ namespace ProjectWeapon.Zone3Greybox.Tests
             Time.fixedDeltaTime = StepTime;
             now = TimeSpan.Zero;
             keyboard = InputSystem.AddDevice<Keyboard>();
-            yield return EditorSceneManager.LoadSceneAsyncInPlayMode(ScenePath,
-                new LoadSceneParameters(LoadSceneMode.Additive, LocalPhysicsMode.Physics2D));
+            SceneManager.sceneLoaded += ConfigureTrial;
+            try
+            {
+                yield return EditorSceneManager.LoadSceneAsyncInPlayMode(ScenePath,
+                    new LoadSceneParameters(LoadSceneMode.Additive, LocalPhysicsMode.Physics2D));
+            }
+            finally
+            {
+                SceneManager.sceneLoaded -= ConfigureTrial;
+            }
             scene = SceneManager.GetSceneByPath(ScenePath);
             Assert.That(scene.isLoaded, Is.True);
             physics = scene.GetPhysicsScene2D();
             Assert.That(physics.IsValid(), Is.True);
-            player = Find<Rigidbody2D>();
+            player = Find<PlayerMovement>().GetComponent<Rigidbody2D>();
             Assert.That(player.GetComponent<PlayerMovement>(), Is.Not.Null);
             returnArea = scene.GetRootGameObjects().Single(root => root.name == "Return Point")
                 .GetComponent<CircleCollider2D>();
@@ -67,6 +79,7 @@ namespace ProjectWeapon.Zone3Greybox.Tests
             Assert.That(catalog, Is.Not.Null);
             Assert.That(returnArea.isTrigger, Is.True);
             Find<TilemapCollider2D>().ProcessTilemapChanges();
+            yield return null;
         }
 
         [UnityTearDown]
@@ -85,10 +98,8 @@ namespace ProjectWeapon.Zone3Greybox.Tests
         [UnityTest]
         public IEnumerator AuthoredWallsBlockMovementAndAWalkableRouteReachesTheReturnPoint()
         {
-            var run = new RunState(() => now);
-            var countdown = new ZoneRunCountdown(catalog, run);
-            RunId id = RunId.New();
-            Assert.That(countdown.TryStartRun(id, ZoneId), Is.True);
+            RunState run = trial.Run;
+            RunId id = run.CurrentRun!.Id;
             ExtractionAccess access = CreateAccess(run);
             Assert.That(player.position, Is.EqualTo(new Vector2(1.5f, 7.5f)));
             Assert.That(access.CanStart(id, Position), Is.False);
@@ -107,11 +118,16 @@ namespace ProjectWeapon.Zone3Greybox.Tests
             yield return WalkTo(Key.W, Vector2.up, 2f);
             SetMovement();
             yield return SimulateStep();
-            now = TimeSpan.FromSeconds(15);
-            ExtractionAttempt? attempt = access.TryStart(id, Position);
+            yield return PressInteract();
+            ExtractionAttempt attempt = run.ActiveExtraction!;
             Assert.That(attempt, Is.Not.Null);
-            now += RunState.ExtractionDuration;
-            Assert.That(countdown.ProcessFrame(Array.Empty<RunSignal>())?.Reason, Is.EqualTo(RunEndReason.Extracted));
+            now = attempt.CompletesAt;
+            yield return null;
+            Assert.That(run.Result?.Reason, Is.EqualTo(RunEndReason.Extracted));
+            Assert.That(trial.PlayerHealth, Is.EqualTo(100));
+            Assert.That(trial.Chest.IsOpen, Is.False);
+            Assert.That(trial.Guard.Brain.CurrentHealth, Is.EqualTo(24));
+            Assert.That(trial.Sentry.Brain.CurrentHealth, Is.EqualTo(18));
         }
 
         [Test]
@@ -141,6 +157,111 @@ namespace ProjectWeapon.Zone3Greybox.Tests
             Assert.That(access.CanStart(id, edge), Is.False);
         }
 
+        [UnityTest]
+        public IEnumerator OptionalClearingCombatsBothEnemiesAndReturnsWithOneChestInstance()
+        {
+            Assert.That(trial.Zone, Is.SameAs(catalog.GetZone(ZoneId)));
+            Assert.That(Enumerable.Range(1, 5).Select(trial.Zone.GetRewardProbabilityBasisPoints),
+                Is.EqualTo(new[] { 0, 4500, 4500, 1000, 0 }));
+            Assert.That((Vector2)trial.Guard.transform.position, Is.EqualTo(new Vector2(6.5f, 6.5f)));
+            Assert.That((Vector2)trial.Sentry.transform.position, Is.EqualTo(new Vector2(9.5f, 4.5f)));
+            Assert.That((Vector2)trial.Chest.transform.position, Is.EqualTo(new Vector2(7.5f, 4.5f)));
+            Assert.That(trial.TryOpenChest(), Is.False);
+
+            int meleeWarnings = 0;
+            trial.Guard.Brain.AttackStarted += _ => meleeWarnings++;
+            yield return WalkTo(Key.D, Vector2.right, 3.5f);
+            yield return WalkTo(Key.S, Vector2.down, -6.5f);
+            yield return WalkTo(Key.D, Vector2.right, 4.3f);
+            SetMovement();
+            yield return WaitUntil(() => meleeWarnings > 0, "The clearing stalker never telegraphed.");
+            yield return WaitUntil(() => trial.Guard.Brain.CurrentHealth <= 0, "The clearing stalker survived the validation sword.");
+            Assert.That(trial.PlayerHealth, Is.LessThan(100));
+
+            yield return WalkTo(Key.D, Vector2.right, 7.5f);
+            yield return WalkTo(Key.S, Vector2.down, -4.5f);
+            SetMovement();
+            int beforeShot = trial.PlayerHealth;
+            yield return WaitUntil(() => trial.Sentry.Brain.ActiveAttack.HasValue, "The sentry never telegraphed.");
+            yield return WaitUntil(() => trial.PlayerHealth < beforeShot, "The sentry missed the player on the clear path.");
+            Assert.That(trial.PlayerHealth, Is.EqualTo(beforeShot - 6));
+
+            yield return PressInteract();
+            Assert.That(trial.Chest.IsOpen, Is.True);
+            WorldLoot drop = Find<WorldLoot>();
+            Assert.That(drop.Item, Is.Not.Null);
+            WeaponInstanceId droppedId = drop.Item!.Id;
+            Assert.That(trial.TryOpenChest(), Is.False);
+            yield return WalkTo(Key.D, Vector2.right, 8.5f);
+            SetMovement();
+            yield return WaitUntil(() => trial.Carried.Count == 1, "The player never picked up the actual fixed chest instance.");
+            Assert.That(trial.Carried.Single().Id, Is.EqualTo(droppedId));
+            Assert.That(trial.Carried.Single().DefinitionId.Value, Is.EqualTo("wooden_spear"));
+            Assert.That(trial.Carried.Single().Location.Kind, Is.EqualTo(WeaponLocationKind.Carried));
+            Assert.That(drop.gameObject.activeSelf, Is.False);
+            yield return WaitUntil(() => trial.Sentry.Brain.CurrentHealth <= 0, "The sentry survived the validation sword.");
+
+            yield return WalkTo(Key.S, Vector2.down, -1.5f);
+            yield return WalkTo(Key.D, Vector2.right, 14.5f);
+            yield return PressInteract();
+            Assert.That(trial.Run.Phase, Is.EqualTo(RunPhase.Exploring));
+            yield return WalkTo(Key.W, Vector2.up, 2f);
+            yield return PressInteract();
+            ExtractionAttempt attempt = trial.Run.ActiveExtraction!;
+            Assert.That(attempt, Is.Not.Null);
+            Assert.That(attempt.CompletesAt - attempt.StartedAt, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            now = attempt.CompletesAt - TimeSpan.FromTicks(1);
+            yield return null;
+            Assert.That(trial.Run.Phase, Is.EqualTo(RunPhase.Extracting));
+            now = attempt.CompletesAt;
+            yield return null;
+            Assert.That(trial.Run.Result?.Reason, Is.EqualTo(RunEndReason.Extracted));
+            Assert.That(trial.Run.Result?.EffectiveAt, Is.EqualTo(attempt.CompletesAt));
+        }
+
+        [UnityTest]
+        public IEnumerator SceneReturnAtTheDeadlineFailsAndLocksUnopenedChest()
+        {
+            player.position = new Vector2(Center.X - returnArea.radius, Center.Y);
+            now = TimeSpan.FromSeconds(717);
+            yield return PressInteract();
+            Assert.That(trial.Run.ActiveExtraction?.CompletesAt, Is.EqualTo(trial.Run.CurrentRun!.Deadline));
+            now = TimeSpan.FromSeconds(720);
+            yield return null;
+            Assert.That(trial.Run.Result?.Reason, Is.EqualTo(RunEndReason.TimeExpired));
+            Assert.That(trial.Carried, Is.Empty);
+            player.position = trial.Chest.transform.position;
+            yield return PressInteract();
+            Assert.That(trial.TryOpenChest(), Is.False);
+            Assert.That(trial.Chest.IsOpen, Is.False);
+        }
+
+        private void ConfigureTrial(Scene loaded, LoadSceneMode _)
+        {
+            if (loaded.path != ScenePath)
+                return;
+
+            trial = loaded.GetRootGameObjects().Select(root => root.GetComponent<Zone3ForestTrial>())
+                .Single(component => component != null)!;
+            trial.ConfigureClock(() => now);
+        }
+
+        private IEnumerator PressInteract()
+        {
+            SetMovement(Key.E);
+            yield return null;
+            SetMovement();
+            yield return null;
+        }
+
+        private IEnumerator WaitUntil(Func<bool> condition, string failure)
+        {
+            for (int step = 0; step < 200 && !condition(); step++)
+                yield return SimulateStep();
+
+            Assert.That(condition(), Is.True, () => $"{failure} Player {player.position} HP {trial.PlayerHealth}, guard {trial.Guard.transform.position} as {trial.Guard.Brain.Phase} HP {trial.Guard.Brain.CurrentHealth}, sentry HP {trial.Sentry.Brain.CurrentHealth}.");
+        }
+
         private IEnumerator WalkTo(Key key, Vector2 direction, float goal)
         {
             SetMovement(key);
@@ -155,6 +276,7 @@ namespace ProjectWeapon.Zone3Greybox.Tests
 
         private IEnumerator SimulateStep()
         {
+            now += TimeSpan.FromMilliseconds(20);
             yield return new WaitForFixedUpdate();
             Assert.That(physics.Simulate(StepTime), Is.True);
         }
