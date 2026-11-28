@@ -1,0 +1,16 @@
+{
+    "name": "ProjectWeapon.Zone4Fortress",
+    "rootNamespace": "ProjectWeapon.Zone4Fortress",
+    "references": [
+        "ProjectWeapon.AutoAttack",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.EnemyCues",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Weapons",
+        "Unity.InputSystem"
+    ]
+}

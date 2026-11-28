@@ -1,0 +1,15 @@
+{
+    "name": "ProjectWeapon.Zone5Sanctum",
+    "rootNamespace": "ProjectWeapon.Zone5Sanctum",
+    "references": [
+        "ProjectWeapon.AutoAttack",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Weapons",
+        "Unity.InputSystem"
+    ]
+}

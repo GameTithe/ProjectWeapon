@@ -1,0 +1,9 @@
+{
+    "name": "ProjectWeapon.AccountSync",
+    "rootNamespace": "ProjectWeapon.AccountSync",
+    "references": [
+        "ProjectWeapon.Accounts",
+        "ProjectWeapon.Save"
+    ],
+    "autoReferenced": false
+}
