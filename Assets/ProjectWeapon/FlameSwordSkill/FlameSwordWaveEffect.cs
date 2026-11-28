@@ -46,10 +46,11 @@ namespace ProjectWeapon.FlameSwordSkill
         private readonly RunState run;
         private readonly Func<WorldPoint2D, IReadOnlyList<TargetCandidate>> readCandidates;
         private readonly Action<FlameSwordWaveImpact> applyImpact;
+        private FlameSwordWave? pendingWave;
 
         /// <param name="run">The authoritative expedition.</param>
         /// <param name="readCandidates">Samples current targets and clear paths from the supplied cast origin.</param>
-        /// <param name="applyImpact">Consumes the single impact. Use ObservedAt for monotonic live enemy actors.</param>
+        /// <param name="applyImpact">Consumes the single impact. Ordinary monotonic enemy actors can use ObservedAt.</param>
         public FlameSwordWaveEffect(RunState run, Func<WorldPoint2D, IReadOnlyList<TargetCandidate>> readCandidates,
             Action<FlameSwordWaveImpact> applyImpact)
         {
@@ -58,7 +59,8 @@ namespace ProjectWeapon.FlameSwordSkill
             this.applyImpact = applyImpact ?? throw new ArgumentNullException(nameof(applyImpact));
         }
 
-        public FlameSwordWave? PendingWave { get; private set; }
+        public FlameSwordWave? PendingWave
+            => pendingWave is { } wave && IsLive(wave) ? wave : null;
 
         public bool TryStart(ManualSkillActivationRequest activation)
         {
@@ -69,24 +71,24 @@ namespace ProjectWeapon.FlameSwordSkill
                 || wave.ScheduledAt >= session.Deadline)
                 return false;
 
-            PendingWave = wave;
+            pendingWave = wave;
             return true;
         }
 
         /// <summary>Advance before finalizing the run frame to admit a late observation of a legal scheduled hit.</summary>
         public bool Advance(TimeSpan observedAt)
         {
-            if (PendingWave is not { } wave)
+            if (pendingWave is not { } wave)
                 return false;
             if (!IsLive(wave))
             {
-                PendingWave = null;
+                pendingWave = null;
                 return false;
             }
             if (observedAt < wave.ScheduledAt)
                 return false;
 
-            PendingWave = null;
+            pendingWave = null;
             IReadOnlyList<TargetCandidate> candidates = readCandidates(wave.Area.Origin);
             if (!IsLive(wave))
                 return false;

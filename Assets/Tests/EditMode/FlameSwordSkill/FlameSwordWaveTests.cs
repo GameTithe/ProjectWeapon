@@ -31,6 +31,7 @@ namespace ProjectWeapon.FlameSwordSkill.Tests
         private WeaponInstance first = null!;
         private WeaponInstance second = null!;
         private EquippedWeaponSelection selection = null!;
+        private WeaponCatalog fixtureCatalog = null!;
         private WeaponActionLocks locks = null!;
         private ManualSkillExecutor executor = null!;
         private FlameSwordWaveEffect effect = null!;
@@ -189,6 +190,7 @@ namespace ProjectWeapon.FlameSwordSkill.Tests
             Assert.That(Activate(100, Guid.NewGuid()), Is.EqualTo(ManualSkillActivationStatus.Started));
             now = Ms(200);
             Assert.That(run.ProcessSignals(new[] { RunSignal.PlayerDied(runId, now) })?.Reason, Is.EqualTo(RunEndReason.Death));
+            Assert.That(effect.PendingWave, Is.Null, "Terminal state must hide a stale preview before Advance.");
             if (replaceRun)
             {
                 Assert.That(run.TryReturnToTown(runId), Is.True);
@@ -198,6 +200,28 @@ namespace ProjectWeapon.FlameSwordSkill.Tests
             Assert.That(effect.PendingWave, Is.Null);
             Assert.That(impacts, Is.Empty);
             Assert.That(reads, Is.Zero);
+        }
+
+        [Test]
+        public void ReusedEffectAcceptsNewRunWithoutAdvancingTheAbandonedWave()
+        {
+            StartFixture();
+            Guid previousGesture = Guid.NewGuid();
+            Assert.That(Activate(100, previousGesture), Is.EqualTo(ManualSkillActivationStatus.Started));
+            now = Ms(200);
+            Assert.That(run.ProcessSignals(new[] { RunSignal.PlayerDied(runId, now) })?.Reason, Is.EqualTo(RunEndReason.Death));
+            Assert.That(effect.PendingWave, Is.Null);
+            Assert.That(run.TryReturnToTown(runId), Is.True);
+            runId = RunId.New();
+            Assert.That(run.TryStartRun(runId, 1, Ms(1000)), Is.True);
+            BindExecutor();
+
+            Guid nextGesture = Guid.NewGuid();
+            Assert.That(Activate(220, nextGesture), Is.EqualTo(ManualSkillActivationStatus.Started));
+            Assert.That(effect.PendingWave?.RunId, Is.EqualTo(runId));
+            Assert.That(Advance(320), Is.False);
+            Assert.That(Advance(440), Is.True);
+            Assert.That(impacts.Single().Wave.Area.ApplicationId, Is.EqualTo(nextGesture));
         }
 
         [Test]
@@ -253,8 +277,8 @@ namespace ProjectWeapon.FlameSwordSkill.Tests
             weaponFields.FindProperty("kind").enumValueIndex = (int)kind;
             weaponFields.FindProperty("skill").objectReferenceValue = skill ? skill : pattern;
             weaponFields.ApplyModifiedPropertiesWithoutUndo();
-            WeaponCatalog catalog = Temporary<WeaponCatalog>();
-            var catalogFields = new SerializedObject(catalog);
+            fixtureCatalog = Temporary<WeaponCatalog>();
+            var catalogFields = new SerializedObject(fixtureCatalog);
             SerializedProperty definitions = catalogFields.FindProperty("definitions");
             definitions.arraySize = 1;
             definitions.GetArrayElementAtIndex(0).objectReferenceValue = definition;
@@ -269,8 +293,13 @@ namespace ProjectWeapon.FlameSwordSkill.Tests
                 sampledOrigin = origin;
                 return candidates;
             }, impacts.Add);
+            BindExecutor();
+        }
+
+        private void BindExecutor()
+        {
             locks = new WeaponActionLocks();
-            selection = new EquippedWeaponSelection(run, new InventoryService(new[] { first, second }), catalog,
+            selection = new EquippedWeaponSelection(run, new InventoryService(new[] { first, second }), fixtureCatalog,
                 () => effect.PendingWave.HasValue, locks);
             executor = new ManualSkillExecutor(run, selection, effect, () => false, _ => null, Attacker);
         }
