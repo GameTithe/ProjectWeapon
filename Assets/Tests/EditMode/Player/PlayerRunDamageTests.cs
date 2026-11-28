@@ -10,6 +10,30 @@ namespace ProjectWeapon.Player.Tests
     public sealed class PlayerRunDamageTests
     {
         [Test]
+        public void DodgeInvulnerabilityUsesTheHitTimeAndStopsAtTheExclusiveBoundary()
+        {
+            var id = RunId.New();
+            var run = new RunState(() => TimeSpan.Zero);
+            var dodge = new PlayerDodge();
+            var health = new PlayerHealth(10);
+            var signals = new List<RunSignal>();
+            int damageEvents = 0;
+            health.DamageApplied += _ => damageEvents++;
+            Assert.That(run.TryStartRun(id, 1, TimeSpan.FromSeconds(10)), Is.True);
+            Assert.That(dodge.TryStart(run, TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(200),
+                TimeSpan.FromMilliseconds(120), TimeSpan.FromMilliseconds(1250)), Is.True);
+
+            Assert.That(PlayerRunDamage.ApplyHit(health, run, id, 1, TimeSpan.FromMilliseconds(99), signals, dodge), Is.True);
+            Assert.That(PlayerRunDamage.ApplyHit(health, run, id, 10, TimeSpan.FromMilliseconds(100), signals, dodge), Is.False);
+            Assert.That(PlayerRunDamage.ApplyHit(health, run, id, 10, TimeSpan.FromMilliseconds(219), signals, dodge), Is.False);
+            Assert.That(PlayerRunDamage.ApplyHit(health, run, id, 1, TimeSpan.FromMilliseconds(220), signals, dodge), Is.True);
+            Assert.That(dodge.IsInvulnerable(RunId.New(), TimeSpan.FromMilliseconds(100)), Is.False);
+            Assert.That(health.CurrentHealth, Is.EqualTo(8));
+            Assert.That(damageEvents, Is.EqualTo(2));
+            Assert.That(signals, Is.Empty);
+        }
+
+        [Test]
         public void InvalidWrongRunAndExploringHitsDoNotQueueCancellation()
         {
             var id = RunId.New();
