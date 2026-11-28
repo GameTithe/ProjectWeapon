@@ -152,6 +152,52 @@ namespace ProjectWeapon.AccountSync.Tests
         }
 
         [Test]
+        public async Task UnavailableReplyFallsBackToTheCurrentSessionCacheOnlyWhenDisconnected()
+        {
+            var store = Store();
+            var endpoint = new TestEndpoint(new AccountSaveAuthority(store, new Rules()));
+            var device = await Connect(endpoint);
+            AccountSaveSnapshot initial = (await device.Client.ReadAsync()).Snapshot!;
+
+            var delayed = new TaskCompletionSource<AccountSaveResult>();
+            endpoint.ReadOverride = delayed.Task;
+            Task<AccountSaveResult> pending = device.Client.ReadAsync();
+            Assert.That(pending.IsCompleted, Is.False);
+            device.Connected = false;
+            delayed.SetResult(new AccountSaveResult(AccountSaveStatus.Unavailable));
+
+            AccountSaveResult offline = await pending;
+            Assert.That(offline.Status, Is.EqualTo(AccountSaveStatus.OfflineReadOnly));
+            Assert.That(offline.Snapshot, Is.SameAs(initial));
+            Assert.That(offline.Receipt, Is.Null);
+
+            device.Connected = true;
+            AccountSaveResult serverUnavailable = await device.Client.ReadAsync();
+            Assert.That(serverUnavailable.Status, Is.EqualTo(AccountSaveStatus.Unavailable));
+            Assert.That(serverUnavailable.Snapshot, Is.Null);
+        }
+
+        [Test]
+        public async Task VerifiedReceiptStillSurvivesConnectionLossBeforeReply()
+        {
+            var store = Store();
+            var delayed = new TaskCompletionSource<bool>();
+            var endpoint = new TestEndpoint(new AccountSaveAuthority(store, new Rules())) { ApplyReplyBarrier = delayed.Task };
+            var device = await Connect(endpoint);
+            Task<AccountSaveResult> pending = device.Client.ApplyAsync(1, Award);
+            Assert.That(pending.IsCompleted, Is.False);
+            Assert.That(store.Commits, Is.EqualTo(1));
+            device.Connected = false;
+            delayed.SetResult(true);
+
+            AccountSaveResult reply = await pending;
+            Assert.That(reply.Status, Is.EqualTo(AccountSaveStatus.Applied));
+            Assert.That(reply.Receipt!.Operation.Id, Is.EqualTo(Award.Id));
+            Assert.That(reply.Snapshot!.Revision, Is.EqualTo(2));
+            Assert.That((await device.Client.ReadAsync()).Snapshot, Is.SameAs(reply.Snapshot));
+        }
+
+        [Test]
         public async Task OfflineMutationStopsBeforeTransportAndOnlyCurrentSessionCanReadCache()
         {
             var store = Store();
@@ -282,6 +328,7 @@ namespace ProjectWeapon.AccountSync.Tests
             public int Calls { get; private set; }
             public bool LoseReply { get; set; }
             public Task<AccountSaveResult>? ReadOverride { get; set; }
+            public Task? ApplyReplyBarrier { get; set; }
 
             public Task<AccountSaveResult> ReadAsync(OnlineAccountSession session)
             {
@@ -295,6 +342,8 @@ namespace ProjectWeapon.AccountSync.Tests
                 Calls++;
                 AccountSaveResult applied = await authority.ApplyAsync(new Identity(session.PlayerId), revision,
                     operation, session.Cancellation);
+                if (ApplyReplyBarrier != null)
+                    await ApplyReplyBarrier;
                 if (LoseReply)
                     throw new InvalidOperationException("Simulated lost response.");
                 return applied;

@@ -59,6 +59,8 @@ namespace ProjectWeapon.AccountSync
                 return connected()
                     ? new AccountSaveResult(AccountSaveStatus.Unavailable)
                     : new AccountSaveResult(AccountSaveStatus.OfflineReadOnly, cached);
+            if (fetched.Status == AccountSaveStatus.Unavailable && !connected())
+                return new AccountSaveResult(AccountSaveStatus.OfflineReadOnly, cached);
 
             if (fetched.Snapshot is { } observed)
             {
