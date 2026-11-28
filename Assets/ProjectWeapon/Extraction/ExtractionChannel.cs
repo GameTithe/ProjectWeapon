@@ -49,7 +49,7 @@ namespace ProjectWeapon.Extraction
 
         private RunSignal? CreateCancellation(RunId runId, TimeSpan effectiveAt)
             => run.ActiveExtraction is { } attempt && effectiveAt >= attempt.StartedAt
-                ? RunSignal.CancelExtraction(runId, attempt.Id, effectiveAt)
+                ? RunSignal.CancelExtraction(runId, attempt.Id, effectiveAt, ExtractionCancelReason.Movement)
                 : null;
 
         /// <summary>Resolves the complete frame, including scheduled completion when due.</summary>
