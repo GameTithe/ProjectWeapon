@@ -8,8 +8,10 @@
 
 ## 확인 방법
 
+Unity에서 `Assets/Scenes/SortieLoop/SortieLoop.unity`를 실행하고 폐성 로비에서 **도감**을 누른다. 저장 자료를 다시 읽을 수 있도록 목록을 열 때 디스크 스냅샷을 확인한다. 현재 전투용 원형에 없는 등의 이유로 장착에 쓰이지 않는 기록도 유효한 저장 파일에서 실물 생성 없이 읽는다. 닫으면 같은 로비로 돌아온다.
+
 ```powershell
 unity test . --mode PlayMode --filter ProjectWeapon.CatalogUI.Tests.CatalogListPanelTests --output "$env:TEMP/KAN-179-results.xml"
 ```
 
-테스트는 읽을 수 없는 저장, 새로 연 저장의 현재 상태, 21종과 등급별 개수, 네 표시 단계와 알 수 없는 상태, 스크롤과 닫기, 저장 파일 바이트 보존을 확인한다.
+테스트는 읽을 수 없는 저장, 새로 연 저장의 현재 상태, 21종과 등급별 개수, 네 표시 단계와 알 수 없는 상태, 스크롤과 닫기, 저장 파일 바이트 보존을 확인한다. 전체 PlayMode의 `RealCatalogButtonReadsTheSavedRosterAndReturnsWithoutWriting`는 실제 출격 로비의 버튼과 저장 경로를 사용한다.

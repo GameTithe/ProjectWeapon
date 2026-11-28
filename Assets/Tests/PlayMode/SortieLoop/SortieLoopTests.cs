@@ -660,6 +660,41 @@ namespace ProjectWeapon.SortieLoop.Tests
             ExecuteEvents.Execute(button.gameObject, pointer, ExecuteEvents.pointerClickHandler);
         }
 
+        [UnityTest]
+        public IEnumerator RealCatalogButtonReadsTheSavedRosterAndReturnsWithoutWriting()
+        {
+            SaveSnapshot previous = store.Load()!;
+            var catalog = new[]
+            {
+                new CatalogSaveRecord(new WeaponDefinitionId("old_sword"), "discovered"),
+                new CatalogSaveRecord(new WeaponDefinitionId("wooden_spear"), "recovered"),
+                new CatalogSaveRecord(new WeaponDefinitionId("genesis_bow"), "mastered")
+            };
+            SaveSnapshot newer = previous.Next(previous.ConfirmedCoins, catalog: catalog);
+            Assert.That(store.Commit(previous.Revision, newer).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+            string snapshotPath = Path.Combine(profileDirectory!, "snapshot.json");
+            byte[] expectedBytes = File.ReadAllBytes(snapshotPath);
+
+            ClickByRaycast(ButtonNamed("Open Catalog"));
+            yield return null;
+            Assert.That(host.IsInLobby, Is.False);
+            ScrollRect list = lobby.GetRootGameObjects().SelectMany(root => root.GetComponentsInChildren<ScrollRect>())
+                .Single(candidate => candidate.name == "Catalog List");
+            Assert.That(list.content.childCount, Is.EqualTo(21));
+            Assert.That(list.content.Find("old_sword/Catalog Stage").GetComponent<TMP_Text>().text, Is.EqualTo("발견"));
+            Assert.That(list.content.Find("wooden_spear/Catalog Stage").GetComponent<TMP_Text>().text, Is.EqualTo("회수"));
+            Assert.That(list.content.Find("genesis_bow/Catalog Stage").GetComponent<TMP_Text>().text, Is.EqualTo("숙련"));
+            Assert.That(list.content.Find("genesis_bow/Weapon Name").GetComponent<TMP_Text>().text, Is.EqualTo("창세의 활"));
+
+            ClickByRaycast(ButtonNamed("Close Catalog"));
+            yield return null;
+            Assert.That(host.IsInLobby, Is.True);
+            Assert.That(host.ActiveManifest, Is.Null);
+            CollectionAssert.AreEqual(expectedBytes, File.ReadAllBytes(snapshotPath));
+            AssertWarehouse(store.Load()!, sword);
+            AssertWarehouse(store.Load()!, warehouseSpare);
+        }
+
         private IEnumerator StartSortie(bool chooseSword)
         {
             Click(ButtonNamed("Open Equipment"));
