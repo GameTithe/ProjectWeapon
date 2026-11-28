@@ -5,6 +5,7 @@
         "ProjectWeapon.Chest",
         "ProjectWeapon.Combat",
         "ProjectWeapon.CombatHud",
+        "ProjectWeapon.Dungeon",
         "ProjectWeapon.Enemies.Boss",
         "ProjectWeapon.Enemies.Melee",
         "ProjectWeapon.Enemies.Ranged",
