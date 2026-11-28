@@ -1,0 +1,10 @@
+{
+  "name": "ProjectWeapon.Chest",
+  "rootNamespace": "ProjectWeapon.Dungeon",
+  "references": [
+    "ProjectWeapon.Inventory",
+    "ProjectWeapon.Loot",
+    "ProjectWeapon.Run",
+    "ProjectWeapon.Weapons"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+    "name": "ProjectWeapon.Zone2Prison",
+    "rootNamespace": "ProjectWeapon.Zone2Prison",
+    "references": [
+        "ProjectWeapon.AutoAttack",
+        "ProjectWeapon.Chest",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Enemies.Ranged",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Loot",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.PrisonGuard",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Weapons",
+        "Unity.InputSystem"
+    ]
+}

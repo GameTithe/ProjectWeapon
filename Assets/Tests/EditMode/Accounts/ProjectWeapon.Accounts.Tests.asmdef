@@ -1,0 +1,12 @@
+{
+    "name": "ProjectWeapon.Accounts.Tests",
+    "rootNamespace": "ProjectWeapon.Accounts.Tests",
+    "references": [
+        "ProjectWeapon.Accounts",
+        "ProjectWeapon.Accounts.Unity",
+        "Unity.Services.Core",
+        "Unity.Services.Authentication.PlayerAccounts"
+    ],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

@@ -37,15 +37,40 @@ namespace ProjectWeapon.Extraction
 
         public event Action<ExtractionChannelProgress?>? ProgressChanged;
 
+        /// <summary>Collects cancellation from valid input even when collision prevents movement.</summary>
+        public RunSignal? ObserveMovement(float acceptedMoveMagnitude, TimeSpan effectiveAt)
+            => ExtractionAccess.HasCancelMovement(acceptedMoveMagnitude) && run.CurrentRun is { } session
+                ? CreateCancellation(session.Id, effectiveAt)
+                : null;
+
+        /// <summary>Call with an accepted dodge event and pass the result into the same frame as damage.</summary>
+        public RunSignal? ObserveAcceptedDodge(RunId runId, TimeSpan effectiveAt)
+            => run.CurrentRun?.Id == runId ? CreateCancellation(runId, effectiveAt) : null;
+
+        private RunSignal? CreateCancellation(RunId runId, TimeSpan effectiveAt)
+            => run.ActiveExtraction is { } attempt && effectiveAt >= attempt.StartedAt
+                ? RunSignal.CancelExtraction(runId, attempt.Id, effectiveAt, ExtractionCancelReason.Movement)
+                : null;
+
         /// <summary>Resolves the complete frame, including scheduled completion when due.</summary>
         public RunResult? ProcessFrame(IEnumerable<RunSignal> frameSignals)
+        {
+            ProcessFrame(frameSignals, recovery: false, interrupt: false, out RunResult? result);
+            return result;
+        }
+
+        public bool TryProcessRecoveryFrame(IEnumerable<RunSignal> frameSignals, bool interrupt, out RunResult? result)
+            => ProcessFrame(frameSignals, recovery: true, interrupt, out result);
+
+        private bool ProcessFrame(IEnumerable<RunSignal> frameSignals, bool recovery, bool interrupt,
+            out RunResult? result)
         {
             RunId runId = run.CurrentRun?.Id ?? default;
             ExtractionAttempt? attempt = run.ActiveExtraction;
             TimeSpan frameAt = TimeSpan.Zero;
             bool requested = false;
 
-            RunResult? result = run.ProcessSignals(frameSignals, now =>
+            RunSignal? CompleteDueAt(TimeSpan now)
             {
                 frameAt = now;
                 if (attempt == null || now < attempt.CompletesAt
@@ -54,7 +79,17 @@ namespace ProjectWeapon.Extraction
 
                 requested = true;
                 return RunSignal.CompleteExtraction(runId, attempt.Id, attempt.CompletesAt);
-            });
+            }
+
+            if (recovery)
+            {
+                if (!run.TryProcessRecoveryFrame(frameSignals, CompleteDueAt, interrupt, out result))
+                    return false;
+            }
+            else
+            {
+                result = run.ProcessSignals(frameSignals, CompleteDueAt);
+            }
 
             if (requested)
             {
@@ -79,7 +114,7 @@ namespace ProjectWeapon.Extraction
                 Publish(null);
             }
 
-            return result;
+            return true;
         }
 
         private void Publish(ExtractionChannelProgress? sample)

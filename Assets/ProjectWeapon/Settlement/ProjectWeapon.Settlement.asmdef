@@ -1,0 +1,14 @@
+{
+  "name": "ProjectWeapon.Settlement",
+  "rootNamespace": "ProjectWeapon.Settlement",
+  "references": [
+    "ProjectWeapon.Catalog",
+    "ProjectWeapon.FailedSettlement",
+    "ProjectWeapon.SuccessfulSettlement",
+    "ProjectWeapon.Inventory",
+    "ProjectWeapon.Run",
+    "ProjectWeapon.Save",
+    "ProjectWeapon.Wallet",
+    "ProjectWeapon.Weapons"
+  ]
+}
