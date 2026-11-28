@@ -12,6 +12,7 @@ using ProjectWeapon.Extraction;
 using ProjectWeapon.Movement;
 using ProjectWeapon.Player;
 using ProjectWeapon.Run;
+using ProjectWeapon.Zone2Prison;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -60,8 +61,16 @@ namespace ProjectWeapon.PrisonGuard.Tests
                 InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
             keyboard = InputSystem.AddDevice<Keyboard>();
             now = TimeSpan.Zero;
-            yield return EditorSceneManager.LoadSceneAsyncInPlayMode(ZonePath,
-                new LoadSceneParameters(LoadSceneMode.Additive, LocalPhysicsMode.Physics2D));
+            SceneManager.sceneLoaded += IsolateMap;
+            try
+            {
+                yield return EditorSceneManager.LoadSceneAsyncInPlayMode(ZonePath,
+                    new LoadSceneParameters(LoadSceneMode.Additive, LocalPhysicsMode.Physics2D));
+            }
+            finally
+            {
+                SceneManager.sceneLoaded -= IsolateMap;
+            }
             scene = SceneManager.GetSceneByPath(ZonePath);
             physics = scene.GetPhysicsScene2D();
             movement = Find<PlayerMovement>();
@@ -302,6 +311,16 @@ namespace ProjectWeapon.PrisonGuard.Tests
             Assert.That(countdown.ProcessFrame(Array.Empty<RunSignal>())!.Reason, Is.EqualTo(RunEndReason.Extracted));
             Assert.That(guard.CurrentHealth, Is.EqualTo(160f));
             Assert.That(guard.Defeat, Is.Null);
+        }
+
+        private static void IsolateMap(Scene loaded, LoadSceneMode _)
+        {
+            if (loaded.path != ZonePath)
+                return;
+
+            Zone2PrisonTrial trial = loaded.GetRootGameObjects().Select(root => root.GetComponent<Zone2PrisonTrial>())
+                .Single(candidate => candidate != null)!;
+            trial.enabled = false;
         }
 
         private IEnumerator WalkTo(Key key, Vector2 direction, float goal)

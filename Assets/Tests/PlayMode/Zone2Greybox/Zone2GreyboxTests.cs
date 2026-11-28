@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using ProjectWeapon.Combat;
@@ -11,6 +12,7 @@ using ProjectWeapon.Extraction;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Loot;
 using ProjectWeapon.Movement;
+using ProjectWeapon.PrisonGuard;
 using ProjectWeapon.Run;
 using ProjectWeapon.Zone2Prison;
 using UnityEditor;
@@ -218,6 +220,8 @@ namespace ProjectWeapon.Zone2Greybox.Tests
             yield return null;
             Assert.That(trial.Run.Result?.Reason, Is.EqualTo(RunEndReason.Extracted));
             Assert.That(trial.Run.Result?.EffectiveAt, Is.EqualTo(attempt.CompletesAt));
+            Assert.That(trial.Boss.CurrentHealth, Is.EqualTo(160f));
+            Assert.That(trial.BossDefeat, Is.Null);
         }
 
         [UnityTest]
@@ -237,6 +241,48 @@ namespace ProjectWeapon.Zone2Greybox.Tests
             yield return PressInteract();
             Assert.That(trial.TryOpenChest(), Is.False);
             Assert.That(trial.Chest.IsOpen, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator ActualOptionalBossReceivesTheSwordAndReportsOneDefeatForTheRoomRun()
+        {
+            Assert.That((Vector2)trial.Boss.transform.position, Is.EqualTo(new Vector2(13.5f, 8.5f)));
+            Assert.That(trial.Boss.GetComponent<Collider2D>(), Is.Null);
+            var defeats = new List<PrisonGuardDefeat>();
+            trial.BossDefeated += defeats.Add;
+            var stance = new Vector2(13.5f, 9.5f);
+            player.position = stance;
+            Physics2D.SyncTransforms();
+            now = TimeSpan.FromMilliseconds(100);
+            yield return null;
+
+            Assert.That(trial.Boss.CurrentHealth, Is.EqualTo(150f));
+            Assert.That(trial.Boss.ActiveAttack, Is.Not.Null);
+            now = trial.Boss.ActiveAttack!.Value.HitsAt;
+            yield return null;
+            Assert.That(trial.PlayerHealth, Is.EqualTo(70));
+
+            for (int step = 0; step < 230 && trial.Boss.CurrentHealth > 0f; step++)
+            {
+                now += TimeSpan.FromMilliseconds(100);
+                bool impactDue = trial.Boss.ActiveAttack is { } attack && now >= attack.HitsAt;
+                player.position = impactDue ? stance + Vector2.right * .75f : stance;
+                yield return null;
+            }
+
+            Assert.That(trial.PlayerHealth, Is.EqualTo(70));
+            Assert.That(trial.Boss.CurrentHealth, Is.Zero);
+            Assert.That(trial.Boss.ActiveAttack, Is.Null);
+            Assert.That(trial.BossDefeat, Is.Not.Null);
+            PrisonGuardDefeat defeat = defeats.Single();
+            Assert.That(defeat.RunId, Is.EqualTo(trial.Run.CurrentRun!.Id));
+            Assert.That(defeat.ZoneId, Is.EqualTo(2));
+            Assert.That(defeat.BossId, Is.EqualTo(PrisonGuardActor.BossId));
+            Assert.That(defeat.EffectiveAt, Is.EqualTo(now));
+            now += TimeSpan.FromSeconds(4);
+            yield return null;
+            Assert.That(defeats, Has.Count.EqualTo(1));
+            Assert.That(trial.Run.Phase, Is.EqualTo(RunPhase.Exploring));
         }
 
         private void ConfigureTrial(Scene loaded, LoadSceneMode _)

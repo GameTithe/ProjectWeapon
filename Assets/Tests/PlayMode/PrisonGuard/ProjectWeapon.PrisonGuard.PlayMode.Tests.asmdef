@@ -9,6 +9,7 @@
         "ProjectWeapon.Player",
         "ProjectWeapon.PrisonGuard",
         "ProjectWeapon.Run",
+        "ProjectWeapon.Zone2Prison",
         "Unity.InputSystem"
     ],
     "optionalUnityReferences": [
