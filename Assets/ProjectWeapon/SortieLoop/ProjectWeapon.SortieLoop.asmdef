@@ -4,11 +4,13 @@
     "references": [
         "ProjectWeapon.CatalogUI",
         "ProjectWeapon.CombatHud",
+        "ProjectWeapon.CombatStatusUI",
         "ProjectWeapon.Dungeon",
         "ProjectWeapon.Extraction",
         "ProjectWeapon.Inventory",
         "ProjectWeapon.ManualSkill",
         "ProjectWeapon.Movement",
+        "ProjectWeapon.Player",
         "ProjectWeapon.Run",
         "ProjectWeapon.RunRecovery",
         "ProjectWeapon.Save",
