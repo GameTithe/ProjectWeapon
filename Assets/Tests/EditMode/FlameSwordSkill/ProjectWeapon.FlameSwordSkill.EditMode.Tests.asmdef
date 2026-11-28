@@ -1,0 +1,16 @@
+{
+    "name": "ProjectWeapon.FlameSwordSkill.EditMode.Tests",
+    "rootNamespace": "ProjectWeapon.FlameSwordSkill.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.FlameSwordSkill",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
