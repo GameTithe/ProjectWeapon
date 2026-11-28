@@ -261,6 +261,35 @@ namespace ProjectWeapon.SteelSpearSkill.Tests
             Assert.That(impacts, Is.Empty);
         }
 
+        [TestCase(100)]
+        [TestCase(170)]
+        public void AChannelStartedAndCanceledBetweenFramesCannotReviveTheCharge(int channelStarted)
+        {
+            StartFixture();
+            Assert.That(Activate(100, Guid.NewGuid()), Is.EqualTo(ManualSkillActivationStatus.Started));
+            if (channelStarted > 100)
+                Assert.That(Advance(150), Is.False);
+            Vector2 stopped = body.position;
+            now = Ms(channelStarted);
+            ExtractionAttempt attempt = run.TryBeginExtraction(runId, isInRange: true)!;
+            Assert.That(attempt, Is.Not.Null);
+            now += Ms(1);
+            Assert.That(run.ProcessSignals(new[] { RunSignal.CancelExtraction(runId, attempt.Id, now) }), Is.Null);
+            Assert.That(run.Phase, Is.EqualTo(RunPhase.Exploring));
+
+            Assert.That(effect.PendingCharge, Is.Null);
+            Assert.That(Advance(280), Is.False);
+            Assert.That(body.position, Is.EqualTo(stopped));
+            Assert.That(impacts, Is.Empty);
+            Assert.That(samples, Is.Zero);
+
+            Assert.That(selection.TrySwitch(1, Ms(280)), Is.True);
+            Assert.That(Activate(900, Guid.NewGuid(), second), Is.EqualTo(ManualSkillActivationStatus.Started));
+            Assert.That(Advance(1080), Is.True);
+            Assert.That(impacts, Has.Count.EqualTo(1));
+            Assert.That(impacts[0].Charge.WeaponInstanceId, Is.EqualTo(second.Id));
+        }
+
         [TestCase("wooden_spear", 2, WeaponKind.Spear)]
         [TestCase("steel_spear", 1, WeaponKind.Spear)]
         [TestCase("steel_spear", 2, WeaponKind.Sword)]

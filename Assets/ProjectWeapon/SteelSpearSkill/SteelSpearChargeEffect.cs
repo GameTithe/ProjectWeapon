@@ -63,7 +63,7 @@ namespace ProjectWeapon.SteelSpearSkill
         private readonly SteelSpearChargeMotion motion;
         private readonly Func<WorldPoint2D, IReadOnlyList<TargetCandidate>> readCandidates;
         private readonly Action<SteelSpearChargeImpact> applyImpact;
-        private SteelSpearCharge? pending;
+        private (SteelSpearCharge Charge, int ExtractionAttemptId)? pending;
         private float attemptedDistance;
         private bool stoppedAtWall;
 
@@ -76,19 +76,19 @@ namespace ProjectWeapon.SteelSpearSkill
             this.applyImpact = applyImpact ?? throw new ArgumentNullException(nameof(applyImpact));
         }
 
-        public SteelSpearCharge? PendingCharge => pending is { } charge && IsLive(charge) ? charge : null;
+        public SteelSpearCharge? PendingCharge => pending is { } active && IsLive(active) ? active.Charge : null;
 
         public bool TryStart(ManualSkillActivationRequest activation)
         {
             if (PendingCharge.HasValue || run.Phase != RunPhase.Exploring
-                || run.CurrentRun is not { } session || activation.RunId != session.Id
-                || activation.StartedAt < session.StartedAt || activation.StartedAt >= session.Deadline
+                || run.GetRecoveryCheckpoint() is not { } checkpoint || activation.RunId != checkpoint.RunId
+                || activation.StartedAt < checkpoint.StartedAt || activation.StartedAt >= checkpoint.Deadline
                 || !motion.IsAvailable || activation.Pattern is not SteelSpearChargePattern pattern
                 || !pattern.TryCreateCharge(activation, motion.Position, out SteelSpearCharge charge)
-                || charge.ThrustAt >= session.Deadline)
+                || charge.ThrustAt >= checkpoint.Deadline)
                 return false;
 
-            pending = charge;
+            pending = (charge, checkpoint.LastAttemptId);
             attemptedDistance = 0;
             stoppedAtWall = false;
             return true;
@@ -97,13 +97,14 @@ namespace ProjectWeapon.SteelSpearSkill
         /// <summary>Advances swept movement during a live room frame and returns true once the thrust resolves.</summary>
         public bool Advance(TimeSpan observedAt)
         {
-            if (pending is not { } charge)
+            if (pending is not { } active)
                 return false;
-            if (!IsLive(charge) || observedAt >= run.CurrentRun!.Deadline || !motion.IsAvailable)
+            if (!IsLive(active) || observedAt >= run.CurrentRun!.Deadline || !motion.IsAvailable)
             {
                 pending = null;
                 return false;
             }
+            SteelSpearCharge charge = active.Charge;
             if (observedAt < charge.StartedAt)
                 return false;
 
@@ -125,7 +126,7 @@ namespace ProjectWeapon.SteelSpearSkill
             pending = null;
             WorldPoint2D stop = motion.Position;
             IReadOnlyList<TargetCandidate> candidates = readCandidates(stop);
-            if (!IsLive(charge) || !motion.IsAvailable)
+            if (!IsLive(active) || !motion.IsAvailable)
                 return false;
 
             AreaDamageRequest area = charge.AreaAt(stop);
@@ -133,8 +134,11 @@ namespace ProjectWeapon.SteelSpearSkill
             return true;
         }
 
-        private bool IsLive(SteelSpearCharge charge) => run.Phase == RunPhase.Exploring && run.Result == null
-            && run.CurrentRun is { } session && session.Id == charge.RunId && charge.ThrustAt < session.Deadline;
+        // The attempt ID survives cancellation and distinguishes an accepted start in the same clock tick.
+        private bool IsLive((SteelSpearCharge Charge, int ExtractionAttemptId) active)
+            => run.Phase == RunPhase.Exploring && run.Result == null && run.GetRecoveryCheckpoint() is { } checkpoint
+                && checkpoint.RunId == active.Charge.RunId && checkpoint.LastAttemptId == active.ExtractionAttemptId
+                && active.Charge.ThrustAt < checkpoint.Deadline;
 
         private DamageRequest? ChooseHit(AreaDamageRequest area, IReadOnlyList<TargetCandidate> candidates)
         {
