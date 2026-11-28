@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RestoreSources>references</RestoreSources>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="ProjectWeapon.AdRewardsAuthority">
+      <HintPath>references/ProjectWeapon.AdRewardsAuthority.dll</HintPath>
+    </Reference>
+    <Reference Include="ProjectWeapon.Inventory">
+      <HintPath>references/ProjectWeapon.Inventory.dll</HintPath>
+    </Reference>
+    <Reference Include="ProjectWeapon.Weapons">
+      <HintPath>references/ProjectWeapon.Weapons.dll</HintPath>
+    </Reference>
+    <Reference Include="ProjectWeapon.WeaponDraw">
+      <HintPath>references/ProjectWeapon.WeaponDraw.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
