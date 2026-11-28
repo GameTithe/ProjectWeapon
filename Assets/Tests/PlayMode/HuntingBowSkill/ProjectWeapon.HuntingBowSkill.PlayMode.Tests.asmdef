@@ -1,0 +1,16 @@
+﻿{
+    "name": "ProjectWeapon.HuntingBowSkill.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.HuntingBowSkill.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.HuntingBowSkill",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.ManualSkillUI",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons",
+        "UnityEngine.UI"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

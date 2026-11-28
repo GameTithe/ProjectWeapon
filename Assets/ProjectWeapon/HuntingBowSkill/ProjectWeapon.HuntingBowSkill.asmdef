@@ -1,0 +1,11 @@
+﻿{
+    "name": "ProjectWeapon.HuntingBowSkill",
+    "rootNamespace": "ProjectWeapon.HuntingBowSkill",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch"
+    ]
+}
