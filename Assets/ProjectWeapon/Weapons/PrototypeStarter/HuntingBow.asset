@@ -18,6 +18,6 @@ MonoBehaviour:
   kind: 3
   prototypeBasicAttackPattern: "\uB2E8\uC77C \uD654\uC0B4"
   prototypeSkillPattern: "\uD654\uC0B4 3\uBC1C"
-  basicAttack: {fileID: 0}
+  basicAttack: {fileID: 11400000, guid: 09ab0c53ae73440fb577a042eebff107, type: 2}
   skill: {fileID: 0}
   attackVfx: {fileID: 0}
