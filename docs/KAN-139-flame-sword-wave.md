@@ -12,4 +12,4 @@
 unity test . --mode EditMode --filter ProjectWeapon.FlameSwordSkill.Tests --output "$env:TEMP/KAN-139-wave-targeted.xml" --timeout 180
 ```
 
-독립 검증은 실제 `FlameSwordWave.asset`을 임시 2등급 `flame_sword` 무기 정의에 연결해 장착·스킬 실행기와 적 피해 객체를 통과한다. 부채꼴 예고 데이터, 발동 수, 중복 표적과 시야 제외, 쿨다운, 지연·탐험 경계를 검증한다. 실제 무기 에셋 연결은 KAN-140 기본공격 병합을 선행한다. [KAN-140](https://gametithe.atlassian.net/browse/KAN-140) · [KAN-190](https://gametithe.atlassian.net/browse/KAN-190)
+실제 2등급 `PrototypeFlameSword/FlameSword.asset`의 스킬 슬롯이 `FlameSwordWave.asset`을 참조한다. 장착·스킬 실행기에서 실제 에셋의 발동과 KAN-140 기본 공격을 검증했다. 부채꼴 예고 데이터, 발동 수, 중복 표적과 시야 제외, 쿨다운, 지연·탐험 경계도 확인한다. 현재 재현은 이 스킬의 전용 검증 경로이며, 실제 전투 씬에서의 실행 호스트 연결은 별도 작업에 속한다. [KAN-140](https://gametithe.atlassian.net/browse/KAN-140) · [KAN-190](https://gametithe.atlassian.net/browse/KAN-190)

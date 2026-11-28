@@ -20,6 +20,7 @@ namespace ProjectWeapon.FlameSwordSkill.Tests
     public sealed class FlameSwordWaveTests
     {
         private const string PatternPath = "Assets/ProjectWeapon/FlameSwordSkill/FlameSwordWave.asset";
+        private const string WeaponPath = "Assets/ProjectWeapon/Weapons/PrototypeFlameSword/FlameSword.asset";
         private const string Attacker = "player";
         private static readonly ManualSkillAim Right = ManualSkillAim.Along(new WorldPoint2D(8, 0));
         private readonly List<Object> temporary = new List<Object>();
@@ -58,6 +59,30 @@ namespace ProjectWeapon.FlameSwordSkill.Tests
             temporary.Clear();
             impacts.Clear();
             candidates = Array.Empty<TargetCandidate>();
+        }
+
+        [Test]
+        public void SavedFlameSwordIsTheOnlyDefinitionWithTheWaveAndFiresThroughTheExecutor()
+        {
+            WeaponDefinition definition = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(WeaponPath);
+            Assert.That(definition, Is.Not.Null);
+            Assert.That(definition.Id.Value, Is.EqualTo("flame_sword"));
+            Assert.That(definition.Grade, Is.EqualTo(2));
+            Assert.That(definition.Kind, Is.EqualTo(WeaponKind.Sword));
+            Assert.That(definition.PrototypeSkillPattern, Is.EqualTo("\uD654\uC5FC \uD30C\uB3D9"));
+            Assert.That(definition.Skill, Is.SameAs(pattern));
+            Assert.That(definition.BasicAttack, Is.Not.Null);
+            var connectedWeapons = AssetDatabase.FindAssets("t:WeaponDefinition", new[] { "Assets/ProjectWeapon/Weapons" })
+                .Select(AssetDatabase.GUIDToAssetPath).Select(AssetDatabase.LoadAssetAtPath<WeaponDefinition>)
+                .Where(weapon => weapon && weapon.Skill == pattern);
+            Assert.That(connectedWeapons, Is.EqualTo(new[] { definition }));
+
+            StartEquippedRun(definition, 20000);
+            candidates = new[] { Candidate("target", 1, 0) };
+            Assert.That(Activate(75, Guid.NewGuid()), Is.EqualTo(ManualSkillActivationStatus.Started));
+            Assert.That(Advance(294), Is.False);
+            Assert.That(Advance(295), Is.True);
+            Assert.That(impacts.Single().Hits.Single().Amount, Is.EqualTo(38));
         }
 
         [Test]
@@ -277,6 +302,11 @@ namespace ProjectWeapon.FlameSwordSkill.Tests
             weaponFields.FindProperty("kind").enumValueIndex = (int)kind;
             weaponFields.FindProperty("skill").objectReferenceValue = skill ? skill : pattern;
             weaponFields.ApplyModifiedPropertiesWithoutUndo();
+            StartEquippedRun(definition, duration);
+        }
+
+        private void StartEquippedRun(WeaponDefinition definition, int duration)
+        {
             fixtureCatalog = Temporary<WeaponCatalog>();
             var catalogFields = new SerializedObject(fixtureCatalog);
             SerializedProperty definitions = catalogFields.FindProperty("definitions");
