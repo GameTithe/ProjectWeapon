@@ -1,0 +1,15 @@
+{
+    "name": "ProjectWeapon.WeaponSale.Tests",
+    "rootNamespace": "ProjectWeapon.WeaponSale.Tests",
+    "references": [
+        "ProjectWeapon.WeaponSale",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Weapons",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.CoinWeaponDraw",
+        "ProjectWeapon.WeaponDraw"
+    ],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

@@ -104,7 +104,7 @@ namespace ProjectWeapon.CoinWeaponDraw
             long remaining = current.ConfirmedCoins - cost;
             var receipt = new CoinWeaponDrawSaveRecord(requestId, cost, remaining, awards);
             var candidate = new SaveSnapshot(nextRevision, remaining, current.Weapons.Concat(weapons), current.Catalog,
-                current.Settlements, current.CoinWeaponDraws.Append(receipt));
+                current.Settlements, current.CoinWeaponDraws.Append(receipt), current.WeaponSales);
             SnapshotCommitResult result = commit(current.Revision, candidate);
             SaveSnapshot? active = result.ActiveSnapshot;
             if (active != null && active.TryGetCoinWeaponDraw(requestId, out CoinWeaponDrawSaveRecord? committed))

@@ -19,10 +19,12 @@ namespace ProjectWeapon.Save
         [SerializeField] private CatalogSaveRecord[] catalog;
         [SerializeField] private SettlementSaveRecord[] settlements;
         [SerializeField] private CoinWeaponDrawSaveRecord[]? coinWeaponDraws;
+        [SerializeField] private WeaponSaleSaveRecord[]? weaponSales;
 
         public SaveSnapshot(long revision, long confirmedCoins, IEnumerable<WeaponInstance> weapons,
             IEnumerable<CatalogSaveRecord> catalog, IEnumerable<SettlementSaveRecord> settlements,
-            IEnumerable<CoinWeaponDrawSaveRecord>? coinWeaponDraws = null)
+            IEnumerable<CoinWeaponDrawSaveRecord>? coinWeaponDraws = null,
+            IEnumerable<WeaponSaleSaveRecord>? weaponSales = null)
         {
             this.revision = revision;
             this.confirmedCoins = confirmedCoins;
@@ -30,6 +32,7 @@ namespace ProjectWeapon.Save
             this.catalog = (catalog ?? throw new ArgumentNullException(nameof(catalog))).ToArray();
             this.settlements = (settlements ?? throw new ArgumentNullException(nameof(settlements))).ToArray();
             this.coinWeaponDraws = coinWeaponDraws?.ToArray();
+            this.weaponSales = weaponSales?.ToArray();
             Validate();
         }
 
@@ -40,6 +43,24 @@ namespace ProjectWeapon.Save
         public IReadOnlyList<SettlementSaveRecord> Settlements => Array.AsReadOnly(settlements);
         public IReadOnlyList<CoinWeaponDrawSaveRecord> CoinWeaponDraws =>
             Array.AsReadOnly(coinWeaponDraws ?? Array.Empty<CoinWeaponDrawSaveRecord>());
+
+        public IReadOnlyList<WeaponSaleSaveRecord> WeaponSales =>
+            Array.AsReadOnly(weaponSales ?? Array.Empty<WeaponSaleSaveRecord>());
+
+        public bool TryGetWeaponSale(Guid requestId, out WeaponSaleSaveRecord? record)
+        {
+            foreach (WeaponSaleSaveRecord sale in weaponSales ?? Array.Empty<WeaponSaleSaveRecord>())
+            {
+                if (sale.RequestId == requestId)
+                {
+                    record = sale;
+                    return true;
+                }
+            }
+
+            record = null;
+            return false;
+        }
 
         public bool TryGetCoinWeaponDraw(Guid requestId, out CoinWeaponDrawSaveRecord? record)
         {
@@ -115,6 +136,18 @@ namespace ProjectWeapon.Save
                         throw new InvalidDataException("Coin draw receipts award the same instance ID more than once.");
                 }
             }
+
+            var saleRequestIds = new HashSet<Guid>();
+            var soldInstanceIds = new HashSet<WeaponInstanceId>();
+            foreach (WeaponSaleSaveRecord sale in weaponSales ?? Array.Empty<WeaponSaleSaveRecord>())
+            {
+                if (sale == null || !sale.IsValid || !saleRequestIds.Add(sale.RequestId)
+                    || !soldInstanceIds.Add(sale.InstanceId))
+                    throw new InvalidDataException("A weapon sale receipt is invalid or duplicates a request or sold instance ID.");
+            }
+
+            if (soldInstanceIds.Count != 0 && weapons.Any(weapon => soldInstanceIds.Contains(weapon.Id)))
+                throw new InvalidDataException("A sold instance is still present in the inventory.");
         }
     }
 
