@@ -1,0 +1,5 @@
+{
+    "name": "ProjectWeapon.Enemies.Ranged",
+    "rootNamespace": "ProjectWeapon.Enemies",
+    "references": ["ProjectWeapon.Combat"]
+}
