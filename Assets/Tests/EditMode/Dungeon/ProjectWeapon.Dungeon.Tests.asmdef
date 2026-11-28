@@ -4,7 +4,9 @@
   "references": [
     "ProjectWeapon.Dungeon",
     "ProjectWeapon.Extraction",
+    "ProjectWeapon.Inventory",
     "ProjectWeapon.Run",
+    "ProjectWeapon.Weapons",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],

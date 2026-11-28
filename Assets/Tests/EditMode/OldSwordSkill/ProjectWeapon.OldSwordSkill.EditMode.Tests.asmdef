@@ -1,0 +1,20 @@
+{
+    "name": "ProjectWeapon.OldSwordSkill.EditMode.Tests",
+    "rootNamespace": "ProjectWeapon.OldSwordSkill.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.OldSwordSkill",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

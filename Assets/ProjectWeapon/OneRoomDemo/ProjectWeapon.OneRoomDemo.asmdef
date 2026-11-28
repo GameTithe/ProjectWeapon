@@ -1,0 +1,20 @@
+{
+    "name": "ProjectWeapon.OneRoomDemo",
+    "rootNamespace": "ProjectWeapon.OneRoomDemo",
+    "references": [
+        "ProjectWeapon.AutoAttack",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Loot",
+        "ProjectWeapon.LootUI",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WandererArt",
+        "ProjectWeapon.Weapons",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ]
+}

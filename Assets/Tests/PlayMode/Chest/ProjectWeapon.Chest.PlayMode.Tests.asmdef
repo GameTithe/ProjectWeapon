@@ -1,0 +1,17 @@
+{
+  "name": "ProjectWeapon.Chest.PlayMode.Tests",
+  "rootNamespace": "ProjectWeapon.Dungeon.Tests",
+  "references": [
+    "ProjectWeapon.Chest",
+    "ProjectWeapon.Inventory",
+    "ProjectWeapon.Loot",
+    "ProjectWeapon.Run",
+    "ProjectWeapon.Save",
+    "ProjectWeapon.Settlement",
+    "ProjectWeapon.Wallet",
+    "ProjectWeapon.Weapons"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
