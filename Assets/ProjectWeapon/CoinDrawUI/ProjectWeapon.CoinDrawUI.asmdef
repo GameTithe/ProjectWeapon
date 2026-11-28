@@ -1,0 +1,12 @@
+{
+    "name": "ProjectWeapon.CoinDrawUI",
+    "rootNamespace": "ProjectWeapon.CoinDrawUI",
+    "references": [
+        "ProjectWeapon.CoinWeaponDraw",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Weapons",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
+    ]
+}
