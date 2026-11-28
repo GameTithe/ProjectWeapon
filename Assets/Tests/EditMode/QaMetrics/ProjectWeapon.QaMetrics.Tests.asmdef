@@ -1,0 +1,15 @@
+{
+    "name": "ProjectWeapon.QaMetrics.Tests",
+    "rootNamespace": "ProjectWeapon.QaMetrics.Tests",
+    "references": [
+        "ProjectWeapon.QaMetrics",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement",
+        "ProjectWeapon.Wallet",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
