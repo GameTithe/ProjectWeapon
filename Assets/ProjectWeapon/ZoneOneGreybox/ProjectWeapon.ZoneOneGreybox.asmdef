@@ -1,0 +1,11 @@
+{
+    "name": "ProjectWeapon.ZoneOneGreybox",
+    "rootNamespace": "ProjectWeapon.ZoneOneGreybox",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Run",
+        "Unity.InputSystem"
+    ]
+}
