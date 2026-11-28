@@ -70,11 +70,12 @@ namespace ProjectWeapon.AdRewards
         public AdRewardReservationStatus Status { get; }
         public AdRewardReservation? Reservation { get; }
 
-        /// <summary>Checks the fresh authorization's show-start window using trusted UTC.</summary>
-        public bool AuthorizesPresentationAt(DateTime authorityUtc) =>
+        /// <summary>Checks whether a fresh show can finish within the lease using trusted UTC and a provider-verified maximum.</summary>
+        public bool AuthorizesPresentationAt(DateTime authorityUtc, TimeSpan verifiedMaximumDisplayDuration) =>
             Status == AdRewardReservationStatus.Reserved && Reservation is { } reservation
             && authorityUtc.Kind == DateTimeKind.Utc && authorityUtc >= reservation.CreatedAtUtc
-            && authorityUtc < reservation.ViewUntilUtc;
+            && verifiedMaximumDisplayDuration > TimeSpan.Zero
+            && verifiedMaximumDisplayDuration <= reservation.ViewUntilUtc - authorityUtc;
     }
 
     public readonly struct AdRewardDailyAvailability
