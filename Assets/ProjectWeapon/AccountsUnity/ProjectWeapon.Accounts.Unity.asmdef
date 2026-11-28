@@ -1,0 +1,10 @@
+{
+    "name": "ProjectWeapon.Accounts.Unity",
+    "rootNamespace": "ProjectWeapon.Accounts.Unity",
+    "references": [
+        "ProjectWeapon.Accounts",
+        "Unity.Services.Core",
+        "Unity.Services.Authentication",
+        "Unity.Services.Authentication.PlayerAccounts"
+    ]
+}

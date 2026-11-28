@@ -43,6 +43,29 @@ namespace ProjectWeapon.Run
         TimeExpired
     }
 
+    public enum ExtractionCancelReason
+    {
+        Unspecified,
+        Movement,
+        Damage
+    }
+
+    public readonly struct ExtractionCancellation
+    {
+        internal ExtractionCancellation(RunId runId, int attemptId, ExtractionCancelReason reason, TimeSpan effectiveAt)
+        {
+            RunId = runId;
+            AttemptId = attemptId;
+            Reason = reason;
+            EffectiveAt = effectiveAt;
+        }
+
+        public RunId RunId { get; }
+        public int AttemptId { get; }
+        public ExtractionCancelReason Reason { get; }
+        public TimeSpan EffectiveAt { get; }
+    }
+
     public sealed class RunSession
     {
         internal RunSession(RunId id, int zoneId, TimeSpan startedAt, TimeSpan deadline)
@@ -103,18 +126,21 @@ namespace ProjectWeapon.Run
 
     public readonly struct RunSignal
     {
-        private RunSignal(RunId runId, RunSignalKind kind, TimeSpan effectiveAt, int attemptId = 0)
+        private RunSignal(RunId runId, RunSignalKind kind, TimeSpan effectiveAt, int attemptId = 0,
+            ExtractionCancelReason cancelReason = ExtractionCancelReason.Unspecified)
         {
             RunId = runId;
             Kind = kind;
             EffectiveAt = effectiveAt;
             AttemptId = attemptId;
+            CancelReason = cancelReason;
         }
 
         public RunId RunId { get; }
         public TimeSpan EffectiveAt { get; }
         internal RunSignalKind Kind { get; }
         internal int AttemptId { get; }
+        internal ExtractionCancelReason CancelReason { get; }
 
         public static RunSignal DeadlineReached(RunId runId, TimeSpan deadline)
             => new RunSignal(runId, RunSignalKind.DeadlineReached, deadline);
@@ -123,7 +149,11 @@ namespace ProjectWeapon.Run
             => new RunSignal(runId, RunSignalKind.PlayerDied, effectiveAt);
 
         public static RunSignal CancelExtraction(RunId runId, int attemptId, TimeSpan effectiveAt)
-            => new RunSignal(runId, RunSignalKind.ExtractionCancelled, effectiveAt, attemptId);
+            => CancelExtraction(runId, attemptId, effectiveAt, ExtractionCancelReason.Unspecified);
+
+        public static RunSignal CancelExtraction(RunId runId, int attemptId, TimeSpan effectiveAt,
+            ExtractionCancelReason reason)
+            => new RunSignal(runId, RunSignalKind.ExtractionCancelled, effectiveAt, attemptId, reason);
 
         public static RunSignal CompleteExtraction(RunId runId, int attemptId, TimeSpan completesAt)
             => new RunSignal(runId, RunSignalKind.ExtractionCompleted, completesAt, attemptId);

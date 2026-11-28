@@ -1,0 +1,16 @@
+{
+    "name": "ProjectWeapon.Boss.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.Enemies.Boss.Tests",
+    "references": [
+        "ProjectWeapon.Enemies.Boss",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Run",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "overrideReferences": true,
+    "precompiledReferences": ["nunit.framework.dll"],
+    "autoReferenced": false,
+    "defineConstraints": ["UNITY_INCLUDE_TESTS"]
+}

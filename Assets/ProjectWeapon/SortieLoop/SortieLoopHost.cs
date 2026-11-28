@@ -5,8 +5,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ProjectWeapon.CatalogUI;
+using ProjectWeapon.CombatHud;
+using ProjectWeapon.CombatStatusUI;
 using ProjectWeapon.Dungeon;
+using ProjectWeapon.ExtractionUI;
 using ProjectWeapon.Inventory;
+using ProjectWeapon.Movement;
 using ProjectWeapon.Run;
 using ProjectWeapon.RunRecovery;
 using ProjectWeapon.Save;
@@ -16,18 +20,21 @@ using ProjectWeapon.SortieUI;
 using ProjectWeapon.Wallet;
 using ProjectWeapon.WarehouseUI;
 using ProjectWeapon.WeaponSale;
+using ProjectWeapon.WeaponSwitch;
 using ProjectWeapon.Weapons;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Room = ProjectWeapon.ZoneOneGreybox.ZoneOneGreybox;
+using Encounter = ProjectWeapon.ZoneOneGreybox.ZoneOneEncounter;
 
 namespace ProjectWeapon.SortieLoop
 {
     [DisallowMultipleComponent]
     public sealed class SortieLoopHost : MonoBehaviour
     {
+        private const int CastleZoneId = 1;
         private const string RoomScene = "ZoneOneGreybox";
         private const string ProfileDirectory = "ZoneOnePrototype";
 
@@ -48,6 +55,9 @@ namespace ProjectWeapon.SortieLoop
         [SerializeField] private Button retry = null!;
         [SerializeField] private TMP_Text lobbyStatus = null!;
         [SerializeField] private TMP_Text loading = null!;
+        [SerializeField] private Canvas combatCanvas = null!;
+        [SerializeField] private VirtualJoystick combatJoystick = null!;
+        [SerializeField] private MovementSettings combatMovementSettings = null!;
 
         private AtomicSnapshotStore store = null!;
         private IReadOnlyDictionary<WeaponDefinitionId, WeaponDefinition> definitions = null!;
@@ -62,12 +72,20 @@ namespace ProjectWeapon.SortieLoop
         private bool refreshLobby;
         private bool cleaningFailedLoad;
         private bool recoveryPending;
+        private CombatHudPanel? combatStatus;
+        private ExtractionStatusPanel? extractionStatus;
         private RunLifecycleRelay lifecycle = null!;
         private Scene roomScene;
         private AsyncOperation? roomLoad;
         private TMP_Text retryLabel = null!;
+        private ZoneSelectionPanel zonesPanel = null!;
+        private Button openZones = null!;
+        private ZoneProgression? progression;
+        private int selectedZoneId = CastleZoneId;
+        private bool restoreZonesAfterEquipment;
 
         public Room? ActiveRoom { get; private set; }
+        public CombatActionHud? ActiveHud { get; private set; }
         public SortieManifest? ActiveManifest => active?.Manifest;
         public bool IsInLobby => active == null && lobby.activeSelf;
 
@@ -89,7 +107,8 @@ namespace ProjectWeapon.SortieLoop
             store = new AtomicSnapshotStore(overriddenPath ?? Path.Combine(Application.persistentDataPath,
                 ProfileDirectory, "snapshot.json"));
             results.Initialize(weapons, hangul);
-            openEquipment.onClick.AddListener(OpenEquipment);
+            openEquipment.onClick.AddListener(() => OpenEquipment(CastleZoneId, fromZones: false));
+            BindZoneSelection();
             openWarehouse.onClick.AddListener(OpenWarehouse);
             openCatalog.onClick.AddListener(OpenCatalog);
             catalogList.Initialize(catalogHangul, ReadCatalogSnapshot);
@@ -109,6 +128,11 @@ namespace ProjectWeapon.SortieLoop
 
         private void LateUpdate()
         {
+            if (combatStatus && active is { } sortie)
+                combatStatus!.RefreshTime(sortie.Clock());
+            if (extractionStatus)
+                extractionStatus!.Render();
+
             if (!refreshLobby)
                 return;
 
@@ -126,12 +150,95 @@ namespace ProjectWeapon.SortieLoop
                 active.Run.RunResultFinalized -= FinishSortie;
         }
 
+        private void BindCombatHud(Room room, ActiveSortie sortie)
+        {
+            PlayerMovement movement = room.Movement
+                ?? throw new InvalidOperationException("The combat room needs a movement controller.");
+            Encounter encounter = room.Encounter
+                ? room.Encounter : throw new InvalidOperationException("The combat room needs an encounter.");
+            bool IsWeaponActionBusy() => movement.IsDodging || encounter.IsWeaponActionBusy;
+            var equipment = new EquippedWeaponSelection(sortie.Run, sortie.Field, weapons,
+                IsWeaponActionBusy, new WeaponActionLocks());
+            var skills = encounter.BindPlayerEquipment(equipment, () => movement.IsDodging);
+
+            ActiveHud = CombatActionHud.Create(combatCanvas, combatJoystick, hangul);
+            ActiveHud.Bind(new CombatHudBindings(sortie.Run, movement, combatMovementSettings, sortie.Field,
+                equipment, skills, sortie.Clock, () => CanControlRoom(room), () => room.CanStartExtraction,
+                room.TryStartExtraction, IsWeaponActionBusy, Encounter.SupportsManualSkill));
+
+            var statusObject = new GameObject("Combat Status", typeof(RectTransform), typeof(CombatHudPanel));
+            var statusRect = (RectTransform)statusObject.transform;
+            statusRect.SetParent(ActiveHud.SafeAreaRoot, false);
+            statusRect.anchorMin = Vector2.zero;
+            statusRect.anchorMax = Vector2.one;
+            statusRect.offsetMin = statusRect.offsetMax = Vector2.zero;
+            CombatHudPanel status = statusRect.GetComponent<CombatHudPanel>();
+            combatStatus = status;
+            status.Initialize(warehouseHangul);
+            status.Bind(encounter.Health, sortie.Countdown, sortie.Field, weapons, sortie.Clock(), equipment.ActiveSlotIndex);
+            equipment.ActiveSlotChanged += selected => status.RefreshEquipment(selected.SlotIndex);
+
+            var extractionObject = new GameObject("Extraction Status", typeof(RectTransform), typeof(ExtractionStatusPanel));
+            var extractionRect = (RectTransform)extractionObject.transform;
+            extractionRect.SetParent(ActiveHud.SafeAreaRoot, false);
+            extractionRect.anchorMin = extractionRect.anchorMax = extractionRect.pivot = new Vector2(.5f, 1f);
+            extractionRect.anchoredPosition = new Vector2(0f, -76f);
+            extractionRect.sizeDelta = new Vector2(336f, 68f);
+            var extraction = extractionObject.GetComponent<ExtractionStatusPanel>();
+            extraction.Initialize(sortie.Run, sortie.Countdown.Extraction, hangul);
+            extractionStatus = extraction;
+        }
+
+        private bool CanControlRoom(Room room) => room && room == ActiveRoom && !returning && !lifecycle.IsGameplayBlocked
+            && active is { Result: null, Receipt: null };
+
+        private void RefreshCombatHud()
+        {
+            if (!ActiveHud)
+                return;
+
+            ActiveHud!.SetVisible(ActiveRoom && CanControlRoom(ActiveRoom!));
+        }
+
+        private void RemoveCombatHud()
+        {
+            if (ActiveHud)
+            {
+                ActiveHud!.gameObject.SetActive(false);
+                Destroy(ActiveHud.gameObject);
+            }
+            ActiveHud = null;
+            combatStatus = null;
+            extractionStatus = null;
+        }
+
+        private void BindZoneSelection()
+        {
+            var font = Resources.Load<TMP_FontAsset>("KAN173/ZoneSelectionHangul");
+            if (!font)
+                throw new InvalidOperationException("The zone selection font is missing.");
+
+            zonesPanel = new ZoneSelectionPanel(equipmentAnchor, font, zones.GetZones(),
+                zoneId => OpenEquipment(zoneId, fromZones: true), CloseZoneSelection);
+            var card = (RectTransform)openEquipment.transform.parent;
+            openZones = ZoneSelectionPanel.CreateButton(card, "Open Zones", "구역 선택", font,
+                .103f, .075f, .297f, .24f, OpenZoneSelection);
+            ZoneSelectionPanel.SetAnchors((RectTransform)openEquipment.transform, .303f, .075f, .497f, .24f);
+            ZoneSelectionPanel.SetAnchors((RectTransform)openWarehouse.transform, .503f, .075f, .697f, .24f);
+            ZoneSelectionPanel.SetAnchors((RectTransform)openCatalog.transform, .703f, .075f, .897f, .24f);
+        }
+
         private void ShowLobby()
         {
             town = null;
+            progression = null;
+            selectedZoneId = CastleZoneId;
+            restoreZonesAfterEquipment = false;
+            zonesPanel.Close();
             lobby.SetActive(true);
             retry.gameObject.SetActive(false);
             loading.gameObject.SetActive(false);
+            openZones.interactable = false;
             openEquipment.interactable = false;
             openWarehouse.interactable = false;
             if (equipment != null) equipment.gameObject.SetActive(false);
@@ -161,10 +268,12 @@ namespace ProjectWeapon.SortieLoop
             }
 
             town = new InventoryService(profile.Weapons);
+            progression = ZoneProgression.Restore(zones, profile);
             int warehouseCount = profile.Weapons.Count(item => item.Location.Kind == WeaponLocationKind.Warehouse);
             lobbyStatus.text = $"창고 무기 {warehouseCount}개";
             BuildEquipmentPanel();
-            openEquipment.interactable = true;
+            openZones.interactable = true;
+            openEquipment.interactable = CanEnterZone(CastleZoneId);
             openWarehouse.interactable = true;
         }
 
@@ -200,19 +309,58 @@ namespace ProjectWeapon.SortieLoop
             rect.offsetMin = rect.offsetMax = Vector2.zero;
             equipment = root.GetComponent<SortieEquipmentPanel>();
             equipment.Initialize(town!, weapons, hangul, IsReady, ConfirmSortie);
-            equipment.Dismissed += () => lobby.SetActive(true);
+            equipment.Dismissed += DismissEquipment;
             equipment.Confirmed += _ => LoadRoom();
         }
 
-        private bool IsReady() => town != null && profile != null && active == null && !returning && lifecycle.IsAvailable
+        private bool CanEnterZone(int zoneId) => zoneId == CastleZoneId
             && Application.CanStreamedLevelBeLoaded(RoomScene) && !SceneManager.GetSceneByName(RoomScene).isLoaded;
 
-        private void OpenEquipment()
+        private bool IsTownReady() => town != null && profile != null && active == null && !returning && lifecycle.IsAvailable;
+
+        private bool IsReady() => IsReady(selectedZoneId);
+
+        private bool IsReady(int zoneId) => IsTownReady() && progression?.IsUnlocked(zoneId) == true && CanEnterZone(zoneId);
+
+        private void OpenZoneSelection()
         {
-            if (!lobby.activeSelf || !IsReady())
+            if (!lobby.activeSelf || !IsTownReady() || progression == null)
                 return;
+
+            lobby.SetActive(false);
+            zonesPanel.Open(progression, CanEnterZone);
+        }
+
+        private void CloseZoneSelection()
+        {
+            if (!zonesPanel.IsOpen || active != null || returning)
+                return;
+
+            zonesPanel.Close();
+            lobby.SetActive(true);
+        }
+
+        private void OpenEquipment(int zoneId, bool fromZones)
+        {
+            if (!(fromZones ? zonesPanel.IsOpen : lobby.activeSelf) || !IsReady(zoneId))
+                return;
+
+            selectedZoneId = zoneId;
+            restoreZonesAfterEquipment = fromZones;
+            zonesPanel.Close();
             lobby.SetActive(false);
             equipment!.Open();
+        }
+
+        private void DismissEquipment()
+        {
+            if (restoreZonesAfterEquipment && progression != null)
+            {
+                zonesPanel.Open(progression, CanEnterZone);
+                return;
+            }
+
+            lobby.SetActive(true);
         }
 
         private void OpenCatalog()
@@ -280,7 +428,7 @@ namespace ProjectWeapon.SortieLoop
             TimeSpan Elapsed() => TimeSpan.FromSeconds(clock() - origin);
             var run = new RunState(Elapsed);
             var countdown = new ZoneRunCountdown(zones, run);
-            SortieStartResult start = new SortieStarter(proposedTown, countdown).TryStart(id, 1);
+            SortieStartResult start = new SortieStarter(proposedTown, countdown).TryStart(id, selectedZoneId);
             if (start.Status != SortieStartStatus.Started || start.Manifest == null)
                 return start;
 
@@ -310,8 +458,7 @@ namespace ProjectWeapon.SortieLoop
             run.RunResultFinalized += FinishSortie;
             var recovery = new RunRecoveryCoordinator(run, countdown.Extraction, store, definitions.ContainsKey,
                 (snapshot, id) => id.Value == start.Manifest.RunId && start.Manifest.MatchesReservations(snapshot.Weapons));
-            // Each room frame submits its observations synchronously before a Unity lifecycle callback can run.
-            lifecycle.Initialize(recovery, () => Array.Empty<RunSignal>(), HasLiveWorld);
+            lifecycle.Initialize(recovery, () => ActiveRoom?.DrainAcceptedDodgeSignals() ?? Array.Empty<RunSignal>(), HasLiveWorld);
             return start;
         }
 
@@ -324,6 +471,7 @@ namespace ProjectWeapon.SortieLoop
 
             ActiveRoom?.SetRecoveryBlocked(lifecycle.IsGameplayBlocked);
             recoveryPending = recovery.Status == RunRecoveryStatus.RecoveryPending;
+            RefreshCombatHud();
             switch (recovery.Status)
             {
                 case RunRecoveryStatus.Resumed:
@@ -343,6 +491,7 @@ namespace ProjectWeapon.SortieLoop
                     break;
                 case RunRecoveryStatus.Settled when recovery.Receipt is { } receipt:
                     active.Receipt = receipt;
+                    RemoveCombatHud();
                     if (active.Result == null)
                         lifecycle.ClearRun();
                     retry.gameObject.SetActive(false);
@@ -409,9 +558,15 @@ namespace ProjectWeapon.SortieLoop
                 WeaponInstance equipped = active.Manifest.Equipped[0];
                 definitions.TryGetValue(equipped.DefinitionId, out WeaponDefinition definition);
                 room.BindRun(active.Run, active.Countdown, active.Clock, active.Field, definition);
+                BindCombatHud(room, active);
+                var boss = room.Encounter.Boss.Boss!;
+                var defeat = new BossDefeatTracker(active.Run, boss.TargetId);
+                boss.Defeated += (id, target, time) => defeat.TryRecordEnemyDeath(id, target, time);
+                active.BossDefeat = defeat;
                 ActiveRoom = room;
                 active.HasEntered = true;
                 room.SetRecoveryBlocked(lifecycle.IsGameplayBlocked);
+                RefreshCombatHud();
                 if (!recoveryPending)
                     loading.gameObject.SetActive(false);
                 return;
@@ -425,6 +580,7 @@ namespace ProjectWeapon.SortieLoop
                 // A bind failure must never replace the previously saved run with a fresh one.
             }
 
+            RemoveCombatHud();
             if (room != null)
                 room.enabled = false;
             cleaningFailedLoad = true;
@@ -470,6 +626,7 @@ namespace ProjectWeapon.SortieLoop
 
             active.Result = result;
             active.HeldAtEnd = active.Field.Snapshot();
+            RemoveCombatHud();
             ActiveRoom?.StopMovement();
             if (!lifecycle.IsGameplayBlocked)
                 SettleActive();
@@ -480,11 +637,15 @@ namespace ProjectWeapon.SortieLoop
             if (active?.Result is not { } result || active.HeldAtEnd == null || returning || recoveryPending)
                 return;
 
+            Func<SaveSnapshot, int?>? proposeNextZone = null;
+            if (result.Succeeded && active.BossDefeat?.Evidence is BossDefeatEvidence defeat)
+                proposeNextZone = current => ZoneProgression.Restore(zones, current).ProposeNextUnlock(result, defeat);
+
             RunSettlementCommit? commit = null;
             try
             {
                 commit = new RunSettlementCoordinator(store).TrySettle(result, active.Manifest, active.HeldAtEnd,
-                    active.Wallet, requireExactReservations: true);
+                    active.Wallet, requireExactReservations: true, proposeNextZone: proposeNextZone);
             }
             catch (IOException)
             {
@@ -533,6 +694,7 @@ namespace ProjectWeapon.SortieLoop
             if (scene != roomScene)
                 return;
 
+            RemoveCombatHud();
             roomScene = default;
             ActiveRoom = null;
             cleaningFailedLoad = false;
@@ -541,6 +703,9 @@ namespace ProjectWeapon.SortieLoop
             else
                 OfferRoomRetry();
         }
+
+        /// <summary>Reads the active profile's confirmed unlocks for the zone menu.</summary>
+        public ZoneProgression ReadZoneProgression() => ZoneProgression.Restore(zones, store.Load());
 
         private void FinishReturning()
         {
@@ -574,6 +739,7 @@ namespace ProjectWeapon.SortieLoop
             internal InventoryService Field { get; }
             internal RunCoinAccumulator Wallet { get; }
             internal RunResult? Result { get; set; }
+            internal BossDefeatTracker? BossDefeat { get; set; }
             internal IReadOnlyList<WeaponInstance>? HeldAtEnd { get; set; }
             internal SettlementSaveRecord? Receipt { get; set; }
             internal bool HasEntered { get; set; }

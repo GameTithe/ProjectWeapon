@@ -1,0 +1,11 @@
+{
+    "name": "ProjectWeapon.AdRewardsAuthority",
+    "rootNamespace": "ProjectWeapon.AdRewards",
+    "references": [
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.WeaponDraw",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": ["Editor"],
+    "autoReferenced": false
+}

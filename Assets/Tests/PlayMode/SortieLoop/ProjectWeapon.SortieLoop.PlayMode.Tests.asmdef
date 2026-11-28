@@ -4,10 +4,14 @@
     "references": [
         "ProjectWeapon.Chest",
         "ProjectWeapon.Combat",
+        "ProjectWeapon.CombatHud",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Enemies.Boss",
         "ProjectWeapon.Enemies.Melee",
         "ProjectWeapon.Enemies.Ranged",
         "ProjectWeapon.Inventory",
         "ProjectWeapon.Loot",
+        "ProjectWeapon.Movement",
         "ProjectWeapon.Run",
         "ProjectWeapon.RunRecovery",
         "ProjectWeapon.Save",
@@ -16,6 +20,7 @@
         "ProjectWeapon.WeaponSale",
         "ProjectWeapon.Weapons",
         "ProjectWeapon.ZoneOneGreybox",
+        "ProjectWeapon.ZoneProgression",
         "Unity.InputSystem",
         "Unity.TextMeshPro",
         "UnityEngine.UI"
