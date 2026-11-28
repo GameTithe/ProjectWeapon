@@ -10,6 +10,7 @@ using ProjectWeapon.Combat;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.Loot;
 using ProjectWeapon.Run;
+using ProjectWeapon.RunRecovery;
 using ProjectWeapon.Save;
 using ProjectWeapon.Settlement;
 using ProjectWeapon.WeaponSale;
@@ -399,6 +400,172 @@ namespace ProjectWeapon.SortieLoop.Tests
                 Assert.That(JsonUtility.ToJson(snapshot.WeaponSales.Single()), Is.EqualTo(JsonUtility.ToJson(sale)));
                 Assert.That(JsonUtility.ToJson(snapshot.CatalogMilestones.Single()), Is.EqualTo(JsonUtility.ToJson(milestone)));
             }
+        }
+
+        [UnityTest]
+        public IEnumerator OverlappingAppInterruptionsKeepTheSameWorldAndRestartExtraction()
+        {
+            yield return StartSortie(chooseSword: true);
+            Room room = host.ActiveRoom!;
+            RunSession session = room.Run.CurrentRun!;
+            yield return DefeatRangedEnemy(room);
+
+            room.Player.position = room.ExtractionCenter;
+            SetElapsed(TimeSpan.FromSeconds(10));
+            Assert.That(room.TryStartExtraction(), Is.True);
+            RunLifecycleRelay relay = host.GetComponent<RunLifecycleRelay>();
+            relay.SendMessage("OnApplicationPause", true);
+            relay.SendMessage("OnApplicationFocus", false);
+            relay.SetConnectionAvailable(false);
+            Assert.That(room.Run.ActiveExtraction, Is.Null);
+            Assert.That(room.TryStartExtraction(), Is.False);
+            Assert.That(room.Player.linearVelocity, Is.EqualTo(Vector2.zero));
+
+            SetElapsed(TimeSpan.FromSeconds(12));
+            relay.SendMessage("OnApplicationPause", false);
+            relay.SendMessage("OnApplicationFocus", true);
+            Assert.That(relay.IsGameplayBlocked, Is.True);
+            Assert.That(room.TryStartExtraction(), Is.False);
+            yield return null;
+            Assert.That(store.Load()!.Revision, Is.EqualTo(2));
+
+            relay.SetConnectionAvailable(true);
+            Assert.That(relay.IsGameplayBlocked, Is.False);
+            Assert.That(host.ActiveRoom, Is.SameAs(room));
+            Assert.That(room.Run.CurrentRun, Is.SameAs(session));
+            Assert.That(room.TryStartExtraction(), Is.True);
+            Assert.That(ActiveAttempt(room).CompletesAt, Is.EqualTo(TimeSpan.FromSeconds(15)));
+            SetElapsed(TimeSpan.FromSeconds(14.99));
+            yield return null;
+            Assert.That(room.Run.Result, Is.Null);
+            SetElapsed(TimeSpan.FromSeconds(15));
+            yield return WaitUntilOrFail(() => store.Load()!.Settlements.Count == 1, "Resumed run did not settle.");
+            ReadReceipt(store.Load()!, session.Id, RunEndReason.Extracted);
+        }
+
+        [UnityTest]
+        public IEnumerator ResumingAtDeadlineAndRepeatedReconnectWriteOnlyOneTimeout()
+        {
+            yield return StartSortie(chooseSword: false);
+            Room room = host.ActiveRoom!;
+            RunSession session = room.Run.CurrentRun!;
+            RunLifecycleRelay relay = host.GetComponent<RunLifecycleRelay>();
+            SetElapsed(session.Deadline - TimeSpan.FromSeconds(1));
+            relay.SendMessage("OnApplicationPause", true);
+            SetElapsed(session.Deadline);
+            yield return null;
+            Assert.That(room.Run.Result, Is.Null);
+            Assert.That(store.Load()!.Revision, Is.EqualTo(2));
+
+            relay.SendMessage("OnApplicationPause", false);
+            Assert.That(room.Run.Result!.EffectiveAt, Is.EqualTo(session.Deadline));
+            SaveSnapshot saved = store.Load()!;
+            ReadReceipt(saved, session.Id, RunEndReason.TimeExpired);
+            string snapshotPath = Path.Combine(profileDirectory!, "snapshot.json");
+            byte[] committed = File.ReadAllBytes(snapshotPath);
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                relay.SendMessage("OnApplicationPause", true);
+                relay.SendMessage("OnApplicationPause", false);
+            }
+            CollectionAssert.AreEqual(committed, File.ReadAllBytes(snapshotPath));
+            Assert.That(store.Load()!.Revision, Is.EqualTo(3));
+            yield return ReturnToLobby();
+        }
+
+        [UnityTest]
+        public IEnumerator LiveRoomRemainsBlockedWhenDurableReservationNoLongerMatches()
+        {
+            yield return StartSortie(chooseSword: true);
+            Room room = host.ActiveRoom!;
+            RunSession session = room.Run.CurrentRun!;
+            RunLifecycleRelay relay = host.GetComponent<RunLifecycleRelay>();
+            relay.SendMessage("OnApplicationPause", true);
+
+            SaveSnapshot previous = store.Load()!;
+            var items = previous.Weapons.Select(item => item.Id == sword.Id
+                ? WeaponInstance.Rehydrate(sword.Id, sword.DefinitionId, sword.Provenance, WeaponLocation.Warehouse())
+                : item);
+            SaveSnapshot changed = previous.Next(previous.ConfirmedCoins, weapons: items.ToArray());
+            Assert.That(store.Commit(previous.Revision, changed).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+            SetElapsed(session.Deadline);
+            relay.SendMessage("OnApplicationPause", false);
+            room.Player.position = room.ExtractionCenter;
+            yield return null;
+            Assert.That(relay.IsGameplayBlocked, Is.True);
+            Assert.That(room.TryStartExtraction(), Is.False);
+            Assert.That(room.Run.Result, Is.Null);
+            Assert.That(store.Load()!.Revision, Is.EqualTo(changed.Revision));
+            Assert.That(store.Load()!.Settlements, Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator OrdinaryTimeoutCannotSettleAgainstAnUnreservedEquippedWeapon()
+        {
+            yield return StartSortie(chooseSword: true);
+            Room room = host.ActiveRoom!;
+            RunSession session = room.Run.CurrentRun!;
+            SaveSnapshot reserved = store.Load()!;
+            SaveSnapshot changed = reserved.Next(reserved.ConfirmedCoins, weapons: reserved.Weapons.Select(item =>
+                item.Id == sword.Id ? WeaponInstance.Rehydrate(sword.Id, sword.DefinitionId, sword.Provenance,
+                    WeaponLocation.Equipped(0)) : item));
+            Assert.That(store.Commit(reserved.Revision, changed).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+
+            SetElapsed(session.Deadline);
+            yield return WaitUntilOrFail(() => room.Run.Result != null, "The run did not finalize.");
+            Assert.That(store.Load()!.Revision, Is.EqualTo(changed.Revision));
+            Assert.That(store.Load()!.Settlements, Is.Empty);
+            Assert.That(store.Load()!.Weapons.Single(item => item.Id == sword.Id).Location.Kind,
+                Is.EqualTo(WeaponLocationKind.Equipped));
+        }
+
+        [UnityTest]
+        public IEnumerator ExistingReceiptDuringRoomLoadPreventsEnteringTheSettledRun()
+        {
+            Click(ButtonNamed("Open Equipment"));
+            Click(WarehouseSwordButton());
+            Click(ButtonNamed("Confirm"));
+            Guid runId = host.ActiveManifest!.RunId;
+            Assert.That(host.ActiveRoom, Is.Null);
+
+            RunLifecycleRelay relay = host.GetComponent<RunLifecycleRelay>();
+            relay.SendMessage("OnApplicationPause", true);
+            SaveSnapshot reserved = store.Load()!;
+            var receipt = new SettlementSaveRecord(runId, "RunSettlement:" + runId,
+                nameof(RunEndReason.TimeExpired));
+            SaveSnapshot settled = reserved.Next(reserved.ConfirmedCoins,
+                weapons: reserved.Weapons.Where(item => item.Location.ReservedRunId != runId),
+                settlements: reserved.Settlements.Append(receipt));
+            Assert.That(store.Commit(reserved.Revision, settled).Status, Is.EqualTo(SnapshotCommitStatus.Committed));
+            relay.SendMessage("OnApplicationPause", false);
+
+            yield return null;
+            Assert.That(host.ActiveRoom, Is.Null);
+            yield return ReturnToLobby();
+            Assert.That(store.Load()!.Revision, Is.EqualTo(settled.Revision));
+            Assert.That(store.Load()!.Settlements.Single().RunId, Is.EqualTo(runId));
+        }
+
+        [UnityTest]
+        public IEnumerator ColdLobbyKeepsUnverifiableReservationAndDisablesSortie()
+        {
+            yield return StartSortie(chooseSword: true);
+            string snapshotPath = Path.Combine(profileDirectory!, "snapshot.json");
+            byte[] reserved = File.ReadAllBytes(snapshotPath);
+            Guid runId = host.ActiveManifest!.RunId;
+
+            yield return SceneManager.UnloadSceneAsync(lobby);
+            yield return SceneManager.UnloadSceneAsync(SceneManager.GetSceneByName(RoomName));
+            yield return LoadLobby(snapshotPath);
+            Button open = ButtonNamed("Open Equipment");
+            Assert.That(open.interactable, Is.False);
+            open.onClick.Invoke();
+            yield return null;
+            Assert.That(host.IsInLobby, Is.True);
+            Assert.That(host.ActiveManifest, Is.Null);
+            Assert.That(store.Load()!.Weapons.Single(item => item.Id == sword.Id).Location.ReservedRunId,
+                Is.EqualTo(runId));
+            CollectionAssert.AreEqual(reserved, File.ReadAllBytes(snapshotPath));
         }
 
         [UnityTest]

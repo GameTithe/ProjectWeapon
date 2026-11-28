@@ -1,0 +1,15 @@
+{
+    "name": "ProjectWeapon.RunRecovery.Tests",
+    "rootNamespace": "ProjectWeapon.RunRecovery.Tests",
+    "references": [
+        "ProjectWeapon.RunRecovery",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Wallet",
+        "ProjectWeapon.Weapons"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
