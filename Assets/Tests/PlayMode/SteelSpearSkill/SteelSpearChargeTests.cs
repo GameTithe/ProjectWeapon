@@ -25,6 +25,8 @@ namespace ProjectWeapon.SteelSpearSkill.Tests
     public sealed class SteelSpearChargeTests
     {
         private const string Asset = "Assets/ProjectWeapon/SteelSpearSkill/SteelSpearCharge.asset";
+        private const string WeaponPath = "Assets/ProjectWeapon/Weapons/PrototypeSteelSpear/SteelSpear.asset";
+        private const string BasicPath = "Assets/ProjectWeapon/Weapons/PrototypeSteelSpear/SteelSpearPiercingThrust.asset";
         private const string PlayerPrefab = "Assets/ProjectWeapon/Movement/PrototypeMovementPlayer.prefab";
         private static readonly ManualSkillAim Right = ManualSkillAim.Along(new WorldPoint2D(7, 0));
         private readonly List<SteelSpearChargeImpact> impacts = new List<SteelSpearChargeImpact>();
@@ -35,6 +37,7 @@ namespace ProjectWeapon.SteelSpearSkill.Tests
         private CircleCollider2D shape = null!;
         private BoxCollider2D wall = null!;
         private PlayerMovement movement = null!;
+        private WeaponDefinition steelSpear = null!;
         private SteelSpearChargePattern pattern = null!;
         private RunState run = null!;
         private RunId runId;
@@ -51,6 +54,8 @@ namespace ProjectWeapon.SteelSpearSkill.Tests
         [UnitySetUp]
         public IEnumerator Setup()
         {
+            steelSpear = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(WeaponPath);
+            Assert.That(steelSpear, Is.Not.Null);
             pattern = AssetDatabase.LoadAssetAtPath<SteelSpearChargePattern>(Asset);
             Assert.That(pattern, Is.Not.Null);
             scene = SceneManager.CreateScene("SteelSpear_" + Guid.NewGuid().ToString("N"),
@@ -87,9 +92,15 @@ namespace ProjectWeapon.SteelSpearSkill.Tests
         }
 
         [Test]
-        public void ActualColliderMovesDuringTheChargeThenOneTypedNearestThrustApplies()
+        public void EquippedCatalogSteelSpearMovesTheActualColliderThenAppliesOneNearestThrust()
         {
             StartFixture();
+            Assert.That(selection.ReadActiveWeapon()!.Value.Definition, Is.SameAs(steelSpear));
+            Assert.That(steelSpear.Id.Value, Is.EqualTo("steel_spear"));
+            Assert.That(steelSpear.Grade, Is.EqualTo(2));
+            Assert.That(steelSpear.Kind, Is.EqualTo(WeaponKind.Spear));
+            Assert.That(AssetDatabase.GetAssetPath(steelSpear.BasicAttack), Is.EqualTo(BasicPath));
+            Assert.That(steelSpear.Skill, Is.SameAs(pattern));
             Guid gesture = Guid.NewGuid();
             Assert.That(Activate(100, gesture), Is.EqualTo(ManualSkillActivationStatus.Started));
             var charge = effect.PendingCharge!.Value;
@@ -295,7 +306,15 @@ namespace ProjectWeapon.SteelSpearSkill.Tests
         [TestCase("steel_spear", 2, WeaponKind.Sword)]
         public void WrongWeaponIsRejectedWithoutCooldown(string id, int grade, WeaponKind kind)
         {
-            StartFixture(id: id, grade: grade, kind: kind);
+            var wrongWeapon = Temporary<WeaponDefinition>();
+            var fields = new SerializedObject(wrongWeapon);
+            fields.FindProperty("definitionId").stringValue = id;
+            fields.FindProperty("displayName").stringValue = "Steel Spear test";
+            fields.FindProperty("grade").intValue = grade;
+            fields.FindProperty("kind").intValue = (int)kind;
+            fields.FindProperty("skill").objectReferenceValue = pattern;
+            fields.ApplyModifiedPropertiesWithoutUndo();
+            StartFixture(weapon: wrongWeapon);
             Assert.That(Activate(100, Guid.NewGuid()), Is.EqualTo(ManualSkillActivationStatus.EffectRejected));
             Assert.That(locks.ReadyAt(CombatWeaponAction.Skill, first.Id), Is.EqualTo(TimeSpan.Zero));
             Assert.That(effect.PendingCharge, Is.Null);
@@ -319,17 +338,9 @@ namespace ProjectWeapon.SteelSpearSkill.Tests
             Physics2D.SyncTransforms();
         }
 
-        private void StartFixture(int duration = 20000, string id = "steel_spear", int grade = 2,
-            WeaponKind kind = WeaponKind.Spear)
+        private void StartFixture(int duration = 20000, WeaponDefinition? weapon = null)
         {
-            var definition = Temporary<WeaponDefinition>();
-            var fields = new SerializedObject(definition);
-            fields.FindProperty("definitionId").stringValue = id;
-            fields.FindProperty("displayName").stringValue = "Steel Spear test";
-            fields.FindProperty("grade").intValue = grade;
-            fields.FindProperty("kind").enumValueIndex = (int)kind;
-            fields.FindProperty("skill").objectReferenceValue = pattern;
-            fields.ApplyModifiedPropertiesWithoutUndo();
+            WeaponDefinition definition = weapon ?? steelSpear;
             var catalog = Temporary<WeaponCatalog>();
             var catalogFields = new SerializedObject(catalog);
             SerializedProperty definitions = catalogFields.FindProperty("definitions");
