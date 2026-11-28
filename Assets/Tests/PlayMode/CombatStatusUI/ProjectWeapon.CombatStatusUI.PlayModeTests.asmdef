@@ -1,8 +1,8 @@
 {
-    "name": "ProjectWeapon.CombatHUD.PlayModeTests",
-    "rootNamespace": "ProjectWeapon.CombatHUD.Tests",
+    "name": "ProjectWeapon.CombatStatusUI.PlayModeTests",
+    "rootNamespace": "ProjectWeapon.CombatStatusUI.Tests",
     "references": [
-        "ProjectWeapon.CombatHUD",
+        "ProjectWeapon.CombatStatusUI",
         "ProjectWeapon.Dungeon",
         "ProjectWeapon.Inventory",
         "ProjectWeapon.Player",

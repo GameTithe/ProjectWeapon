@@ -9,7 +9,7 @@ using ProjectWeapon.Weapons;
 using TMPro;
 using UnityEngine;
 
-namespace ProjectWeapon.CombatHUD
+namespace ProjectWeapon.CombatStatusUI
 {
     [RequireComponent(typeof(RectTransform))]
     [DisallowMultipleComponent]

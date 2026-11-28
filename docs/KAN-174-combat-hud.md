@@ -14,7 +14,7 @@ HP는 `PlayerHealth.DamageApplied`에서 즉시 갱신한다. 패널을 비활�
 ## 재현
 
 ```powershell
-unity test . --mode PlayMode --filter ProjectWeapon.CombatHUD.Tests --output "$env:TEMP/KAN-174-playmode.xml"
+unity test . --mode PlayMode --filter ProjectWeapon.CombatStatusUI.Tests --output "$env:TEMP/KAN-174-playmode.xml"
 ```
 
 PlayMode에서 실제 Canvas, 무기 카탈로그, 탐험과 인벤토리를 연결해 체력 감소와 0 HP, 0초 직전과 만료, 장착 교체와 활성 표시, 빈 슬롯 및 원형 누락, 탐험 재연결과 패널 재활성화를 확인한다.

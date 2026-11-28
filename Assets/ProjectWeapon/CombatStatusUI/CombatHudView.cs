@@ -5,7 +5,7 @@ using System.Globalization;
 using TMPro;
 using UnityEngine;
 
-namespace ProjectWeapon.CombatHUD
+namespace ProjectWeapon.CombatStatusUI
 {
     internal sealed class CombatHudView
     {

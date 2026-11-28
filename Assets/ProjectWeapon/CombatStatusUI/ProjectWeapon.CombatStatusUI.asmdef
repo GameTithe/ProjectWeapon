@@ -1,6 +1,6 @@
 {
-    "name": "ProjectWeapon.CombatHUD",
-    "rootNamespace": "ProjectWeapon.CombatHUD",
+    "name": "ProjectWeapon.CombatStatusUI",
+    "rootNamespace": "ProjectWeapon.CombatStatusUI",
     "references": [
         "ProjectWeapon.Dungeon",
         "ProjectWeapon.Inventory",

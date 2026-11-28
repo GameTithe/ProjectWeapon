@@ -17,7 +17,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
-namespace ProjectWeapon.CombatHUD.Tests
+namespace ProjectWeapon.CombatStatusUI.Tests
 {
     public sealed class CombatHudPanelTests : IPrebuildSetup, IPostBuildCleanup
     {
