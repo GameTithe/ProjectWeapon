@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using ProjectWeapon.AutoAttack;
 using ProjectWeapon.Combat;
 using ProjectWeapon.Dungeon;
@@ -41,7 +42,7 @@ namespace ProjectWeapon.ZoneOneGreybox
         private readonly List<RunSignal> frameSignals = new List<RunSignal>();
         private readonly List<(DamageRequest Hit, TimeSpan EffectiveAt)> damageEvents = new List<(DamageRequest, TimeSpan)>();
         private readonly PlayerHealth health = new PlayerHealth(100);
-        private readonly InventoryService field = new InventoryService(Array.Empty<WeaponInstance>());
+        private InventoryService field = null!;
         private RunState run = null!;
         private Rigidbody2D player = null!;
         private Rigidbody2D meleeBody = null!;
@@ -49,19 +50,23 @@ namespace ProjectWeapon.ZoneOneGreybox
         private SpriteRenderer meleeVisual = null!;
         private SpriteRenderer rangedVisual = null!;
         private PlayerDodge? playerDodge;
+        private WeaponDefinition? weapon;
         private Func<TimeSpan> readTime = null!;
 
         public MeleeEnemyActor Melee => melee;
         public RangedEnemyActor Ranged => ranged;
         public FixedLootChest Chest => chest;
         public int PlayerHealth => health.CurrentHealth;
-        public IReadOnlyList<WeaponInstance> Collected => field.Snapshot();
+        public IReadOnlyList<WeaponInstance> Collected => field.Snapshot().Where(item => item.Location.Kind == WeaponLocationKind.Carried).ToArray();
+        public IReadOnlyList<WeaponInstance> Held => field.Snapshot();
 
         internal void Initialize(RunState state, Rigidbody2D playerBody, PlayerDodge? dodge,
-            Func<bool> isDodging, Func<TimeSpan> readTime)
+            Func<bool> isDodging, Func<TimeSpan> readTime, InventoryService field, WeaponDefinition? activeWeapon)
         {
             run = state;
             this.readTime = readTime;
+            this.field = field ?? throw new ArgumentNullException(nameof(field));
+            weapon = activeWeapon != null || field.Snapshot().Count > 0 ? activeWeapon : demoSword;
             player = playerBody;
             playerDodge = dodge;
             meleeBody = melee.GetComponent<Rigidbody2D>();
@@ -133,23 +138,40 @@ namespace ProjectWeapon.ZoneOneGreybox
                 melee.Brain.CurrentHealth > 0, HasClearPath(origin, meleeBody.position));
             enemies[1] = new TargetCandidate(RangedId, Point(rangedPosition),
                 ranged.Brain.CurrentHealth > 0, HasClearPath(origin, rangedPosition));
-            attacks.TryAttack(now, Point(origin), demoSword, enemies);
+            attacks.TryAttack(now, Point(origin), weapon, enemies);
         }
 
         private bool TrySwing(BasicAttackRequest attack)
         {
-            if (attack.Pattern is not MeleeSlashPattern sword
-                || !sword.TryCreateSwing(attack, Guid.NewGuid(), PlayerId, enemies, out MeleeSlashSwing? swing))
+            Guid id = Guid.NewGuid();
+            if (attack.Pattern is SpearThrustPattern spear && spear.TryCreateThrust(attack, id, PlayerId, out SpearThrust thrust))
+            {
+                HitEnemy(thrust.Hit, thrust.EffectiveAt);
+                return true;
+            }
+
+            IReadOnlyList<DamageRequest>? hits = attack.Pattern switch
+            {
+                MeleeSlashPattern sword when sword.TryCreateSwing(attack, id, PlayerId, enemies, out MeleeSlashSwing? swing)
+                    => swing!.Hits,
+                CircularStrikePattern mace when mace.TryCreateStrike(attack, id, PlayerId, enemies, out CircularStrike? strike)
+                    => strike!.Hits,
+                _ => null
+            };
+            if (hits == null)
                 return false;
 
-            foreach (DamageRequest hit in swing!.Hits)
-            {
-                if (StringComparer.Ordinal.Equals(hit.TargetId, MeleeId))
-                    melee.ApplyDamage(hit, swing.EffectiveAt);
-                else if (StringComparer.Ordinal.Equals(hit.TargetId, RangedId))
-                    ranged.ApplyDamage(hit, swing.EffectiveAt);
-            }
+            foreach (DamageRequest hit in hits)
+                HitEnemy(hit, attack.StartedAt);
             return true;
+        }
+
+        private void HitEnemy(DamageRequest hit, TimeSpan effectiveAt)
+        {
+            if (StringComparer.Ordinal.Equals(hit.TargetId, MeleeId))
+                melee.ApplyDamage(hit, effectiveAt);
+            else if (StringComparer.Ordinal.Equals(hit.TargetId, RangedId))
+                ranged.ApplyDamage(hit, effectiveAt);
         }
 
         private bool CanCollect() => run.Phase == RunPhase.Exploring
