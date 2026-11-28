@@ -1,5 +1,26 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-8574439860534025291
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 967cedc84ea446948ba8bcd46a4bb458, type: 3}
+  m_Name: dagger baseline
+  m_EditorClassIdentifier: ProjectWeapon.Weapons::ProjectWeapon.Weapons.WeaponDefinition
+  definitionId: qa_dagger
+  displayName: dagger baseline
+  grade: 1
+  kind: 5
+  prototypeBasicAttackPattern:
+  prototypeSkillPattern:
+  basicAttack: {fileID: 11400000, guid: 3f0cc35a8a234c0a979635d33aebbd90, type: 2}
+  skill: {fileID: -1349252501587260893}
+  attackVfx: {fileID: 0}
 --- !u!114 &-7930073023659909582
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -122,6 +143,7 @@ MonoBehaviour:
   - {fileID: 1229721073296943891}
   - {fileID: -6620201609764747210}
   - {fileID: -6928014320877012848}
+  - {fileID: -8574439860534025291}
   - {fileID: -5720340022199732699}
   - {fileID: 7311855088395268604}
   - {fileID: -6572220107847046283}
@@ -191,6 +213,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: c270719e2f0210949b1fa656876f6246, type: 2}
   - {fileID: 11400000, guid: 01ca09136bd11ab4194164a1674d6f4c, type: 2}
   - {fileID: 11400000, guid: aa7b17bbaae9e1b418679c56b2ea9374, type: 2}
+  - {fileID: 11400000, guid: a33ac7879b7c5d04ba2600c0724f923a, type: 2}
   seed: 40
   trials: 3
   windowMilliseconds: 12000

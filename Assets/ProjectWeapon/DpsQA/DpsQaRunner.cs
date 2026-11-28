@@ -45,7 +45,7 @@ namespace ProjectWeapon.DpsQA
                 WeaponDefinition weapon = weapons[index];
                 if (weapon.BasicAttack is not BasicAttackPattern attack
                     || (attack is not MeleeSlashPattern && attack is not SpearThrustPattern
-                        && attack is not CircularStrikePattern && attack is not SingleArrowPattern)
+                        && attack is not CircularStrikePattern && attack is not SingleArrowPattern && attack is not DaggerFlurryPattern)
                     || weapon.Skill != sharedSkill || weapon.Skill is not ManualSkillPattern skill || skill.AimKind != ManualSkillAimKind.Enemy)
                     throw new InvalidOperationException($"Unsupported QA attack or skill on {weapon.Id.Value}.");
 
@@ -83,6 +83,7 @@ namespace ProjectWeapon.DpsQA
             private readonly TrialResult result = new TrialResult();
             private readonly HashSet<Guid> applications = new HashSet<Guid>();
             private readonly List<(ProjectileLifecycle Arrow, TimeSpan StartedAt, TimeSpan ContactDelay)> arrows = new();
+            private DaggerFlurry? activeFlurry;
             private TimeSpan clock;
 
             public Trial(DpsQaSettings settings, WorldPoint2D origin, TargetCandidate target, WeaponDefinition weapon)
@@ -110,7 +111,9 @@ namespace ProjectWeapon.DpsQA
                 for (long millisecond = 0; millisecond < settings.WindowMilliseconds; millisecond += settings.StepMilliseconds)
                 {
                     clock = TimeSpan.FromMilliseconds(millisecond);
-                    scheduler.TryAttack(clock, origin, weapon, targets);
+                    AdvanceDagger(run);
+                    if (scheduler.TryAttack(clock, origin, weapon, targets))
+                        AdvanceDagger(run);
                     AdvanceArrows();
                     if (withSkill && millisecond >= skillOffset
                         && (millisecond - skillOffset) % settings.SkillPeriodMilliseconds == 0)
@@ -135,6 +138,8 @@ namespace ProjectWeapon.DpsQA
                         foreach (DamageRequest hit in strike!.Hits)
                             Apply(hit, skill: false);
                         return true;
+                    case DaggerFlurryPattern dagger when activeFlurry == null:
+                        return dagger.TryCreateFlurry(request, Caster, out activeFlurry);
                     case SingleArrowPattern bow:
                         var arrow = new ProjectileLifecycle();
                         if (!bow.TryLaunch(request, application, Caster, arrow))
@@ -149,6 +154,19 @@ namespace ProjectWeapon.DpsQA
                     default:
                         return false;
                 }
+            }
+
+            private void AdvanceDagger(RunState run)
+            {
+                if (activeFlurry is not { } flurry)
+                    return;
+
+                while (flurry.TryResolveNext(run, clock, origin, targets[0], out DaggerStrike strike))
+                    if (strike.Hit is DamageRequest hit)
+                        Apply(hit, skill: false);
+
+                if (flurry.IsFinished)
+                    activeFlurry = null;
             }
 
             private void AdvanceArrows()
