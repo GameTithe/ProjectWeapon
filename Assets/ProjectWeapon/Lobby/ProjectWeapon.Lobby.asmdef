@@ -1,0 +1,7 @@
+{
+  "name": "ProjectWeapon.Lobby",
+  "rootNamespace": "ProjectWeapon.Lobby",
+  "references": [
+    "Unity.ugui"
+  ]
+}

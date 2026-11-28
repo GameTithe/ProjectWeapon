@@ -1,0 +1,11 @@
+{
+  "name": "ProjectWeapon.Lobby.PlayMode.Tests",
+  "rootNamespace": "ProjectWeapon.Lobby.Tests",
+  "references": [
+    "ProjectWeapon.Lobby",
+    "Unity.ugui"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
