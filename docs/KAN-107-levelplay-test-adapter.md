@@ -22,3 +22,5 @@ unity test . --mode EditMode --filter ProjectWeapon.LevelPlayTest.Tests --output
 ```
 
 실제 관리 SDK의 `ILevelPlayRewardedAd`를 쓰는 테스트에서 로드 실패, 사전 취소, 표시 오류, 순서가 바뀐 로컬 콜백, 같은 요청 영수증, 늦은 허가의 만료, 예약 재사용 차단, 세션 종료와 표시 종료 뒤의 독립 요청를 검증한다. S2S 테스트는 전용 가상 키로 변조된 서명·예약·앱·중복 필드에 대한 거부와 KAN-97의 단일 지급을 검증한다. Android/iOS 네이티브 광고 제공과 테스트 호스트는 별도 실기기 검증이 필요하다. 관리 패키지 설치 중 SDK가 별도 Android/iOS 의존성 파일을 생성했다. 실제 기기 의존성 조합을 확인한 뒤 그 플랫폼의 설정을 확정해야 한다. 현재 Windows 환경의 Android 빌드 지원 설치는 UAC에서 중단됐고 실제 테스트 앱과 광고 단위 및 콜백 호스트는 설정돼 있지 않다. [KAN-42](https://gametithe.atlassian.net/browse/KAN-42) · [KAN-43](https://gametithe.atlassian.net/browse/KAN-43)
+
+실제 모바일 호스트는 KAN-105에서 요구하는 확인된 최대 영상 표시 시간을 확보한 뒤, 현재 표시 임대 안에 영상이 모두 들어가는 최종 시작 한계로 `Remaining`을 계산해야 한다. 앱의 240초 복구 경로는 SDK 콜백에 응답하기 위한 시간이며, 네이티브 영상이 실제로 종료되는 시각을 증명하지 않는다. 실기기에서 이 경계를 확인하기 전에는 테스트 광고의 활성화를 보류한다.
