@@ -1,0 +1,14 @@
+{
+    "name": "ProjectWeapon.SortieUI.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.SortieUI.Tests",
+    "references": [
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.SortieUI",
+        "ProjectWeapon.Weapons",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

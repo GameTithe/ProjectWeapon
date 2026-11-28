@@ -13,6 +13,7 @@ namespace ProjectWeapon.AutoAttack
     {
         private readonly RunState run;
         private readonly Func<BasicAttackRequest, bool> tryExecute;
+        private readonly Func<bool>? isDodgeActive;
         private RunId observedRun;
         private TimeSpan lastTickAt;
         private TimeSpan? lastAttackAt;
@@ -22,15 +23,18 @@ namespace ProjectWeapon.AutoAttack
         /// <param name="run">The authoritative run state used by the extraction channel.</param>
         /// <param name="tryExecute">Starts an attack synchronously. Return false only when nothing started.</param>
         /// <param name="initiallyEnabled">The player's initial toggle setting.</param>
-        public AutoAttackScheduler(RunState run, Func<BasicAttackRequest, bool> tryExecute, bool initiallyEnabled)
+        /// <param name="isDodgeActive">Reads the player's current dodge state without changing the toggle or cooldown.</param>
+        public AutoAttackScheduler(RunState run, Func<BasicAttackRequest, bool> tryExecute, bool initiallyEnabled,
+            Func<bool>? isDodgeActive = null)
         {
             this.run = run ?? throw new ArgumentNullException(nameof(run));
             this.tryExecute = tryExecute ?? throw new ArgumentNullException(nameof(tryExecute));
+            this.isDodgeActive = isDodgeActive;
             IsEnabled = initiallyEnabled;
         }
 
         public bool IsEnabled { get; private set; }
-        public bool IsEffective => IsEnabled && run.Phase == RunPhase.Exploring;
+        public bool IsEffective => IsEnabled && run.Phase == RunPhase.Exploring && !(isDodgeActive?.Invoke() ?? false);
 
         /// <summary>Applies a toggle immediately and preserves its previous value throughout extraction.</summary>
         public bool TrySetEnabled(bool enabled)

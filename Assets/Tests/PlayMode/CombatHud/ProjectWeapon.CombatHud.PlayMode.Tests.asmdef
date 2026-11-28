@@ -1,0 +1,23 @@
+{
+    "name": "ProjectWeapon.CombatHud.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.CombatHud.Tests",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.CombatHud",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.ManualSkillUI",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

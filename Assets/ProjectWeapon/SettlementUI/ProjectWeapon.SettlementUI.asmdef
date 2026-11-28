@@ -1,0 +1,12 @@
+{
+    "name": "ProjectWeapon.SettlementUI",
+    "rootNamespace": "ProjectWeapon.SettlementUI",
+    "references": [
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement",
+        "ProjectWeapon.Weapons",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ]
+}
