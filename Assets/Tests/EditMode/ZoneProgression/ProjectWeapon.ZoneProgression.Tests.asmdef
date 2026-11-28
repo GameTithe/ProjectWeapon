@@ -1,0 +1,22 @@
+{
+    "name": "ProjectWeapon.ZoneProgression.Tests",
+    "rootNamespace": "ProjectWeapon.Dungeon.Tests",
+    "references": [
+        "ProjectWeapon.ZoneProgression",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Settlement",
+        "ProjectWeapon.Wallet",
+        "ProjectWeapon.Weapons"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

@@ -1,0 +1,15 @@
+{
+    "name": "ProjectWeapon.CombatStatusUI.PlayModeTests",
+    "rootNamespace": "ProjectWeapon.CombatStatusUI.Tests",
+    "references": [
+        "ProjectWeapon.CombatStatusUI",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Weapons",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

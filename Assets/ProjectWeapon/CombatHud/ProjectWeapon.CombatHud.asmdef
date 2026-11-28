@@ -1,0 +1,19 @@
+{
+    "name": "ProjectWeapon.CombatHud",
+    "rootNamespace": "ProjectWeapon.CombatHud",
+    "references": [
+        "ProjectWeapon.Combat",
+        "ProjectWeapon.Extraction",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.ManualSkill",
+        "ProjectWeapon.ManualSkillUI",
+        "ProjectWeapon.Movement",
+        "ProjectWeapon.Player",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.WeaponSwitch",
+        "ProjectWeapon.Weapons",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ]
+}
