@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -11,7 +12,9 @@ using ProjectWeapon.Ad;
 using ProjectWeapon.Inventory;
 using ProjectWeapon.WeaponDraw;
 using ProjectWeapon.Weapons;
+using UnityEditor;
 using UnityEditor.Compilation;
+using UnityEngine;
 
 namespace ProjectWeapon.AdRewards.Tests
 {
@@ -45,7 +48,7 @@ namespace ProjectWeapon.AdRewards.Tests
             file = OpenRestartedStore();
             verifier = new ProofVerifierDouble();
             verifier.Add(Proof, Completion());
-            draw = DrawFixture();
+            draw = AdRewardDrawFixture.Create();
             now = ReservedAt.AddMinutes(2);
             Seed();
         }
@@ -163,6 +166,127 @@ namespace ProjectWeapon.AdRewards.Tests
             }
             Assert.That(OpenRestartedStore().Read().ConfirmedUses(Account, ReservedAt.Date), Is.EqualTo(1));
             Assert.That(File.ReadAllBytes(path), Is.EqualTo(before));
+        }
+
+        [Test]
+        public void WindowsChildKilledAfterCommitReplaysOneDurableWeaponUseAndReceipt()
+        {
+            if (Application.platform != RuntimePlatform.WindowsEditor
+                || Environment.GetEnvironmentVariable("PROJECTWEAPON_KAN97_CHILD") != "1")
+                Assert.Ignore("Set PROJECTWEAPON_KAN97_CHILD=1 in the Windows Editor process to verify the real writer termination.");
+
+            string dotnet = Path.Combine(EditorApplication.applicationContentsPath, "DotNetSdk", "dotnet.exe");
+            string buildDirectory = Path.Combine(directory, "child-build");
+            try
+            {
+                BuildChildWriter(dotnet, buildDirectory);
+                byte[] initial = File.ReadAllBytes(path);
+                Assert.That(OpenRestartedStore().Read().Grants, Is.Empty);
+                var start = ChildProcess(dotnet, buildDirectory, @"bin\Release\net8.0\AdRewardCrashWriter.dll");
+                start.EnvironmentVariables["PROJECTWEAPON_KAN97_LEDGER"] = path;
+                start.EnvironmentVariables["PROJECTWEAPON_KAN97_TOKEN"] = Token;
+                start.EnvironmentVariables["PROJECTWEAPON_KAN97_PROOF"] = Proof;
+                start.EnvironmentVariables["PROJECTWEAPON_KAN97_EVENT"] = Event;
+                using Process child = Process.Start(start) ?? throw new InvalidOperationException("The reward writer did not start.");
+                Task<string?> marker = child.StandardOutput.ReadLineAsync();
+                Task<string> errors = child.StandardError.ReadToEndAsync();
+                WeaponInstanceId childWeapon;
+                byte[] atBarrier;
+                try
+                {
+                    Assert.That(marker.Wait(TimeSpan.FromSeconds(12)), Is.True, "The child did not reach its durable checkpoint.");
+                    Assert.That(marker.Result, Does.StartWith("READY "),
+                        () => errors.IsCompleted ? errors.Result : "The child exited before its durable checkpoint.");
+                    Assert.That(WeaponInstanceId.TryParse(marker.Result!.Substring("READY ".Length), out childWeapon), Is.True);
+                    atBarrier = File.ReadAllBytes(path);
+                    Assert.That(atBarrier, Is.Not.EqualTo(initial));
+                    Assert.That(child.HasExited, Is.False);
+                    child.Kill();
+                    Assert.That(child.WaitForExit(10000), Is.True, "The isolated reward writer did not terminate.");
+                }
+                finally
+                {
+                    if (!child.HasExited)
+                    {
+                        child.Kill();
+                        child.WaitForExit(10000);
+                    }
+                }
+
+                Assert.That(child.ExitCode, Is.Not.Zero);
+                var reopened = OpenRestartedStore().Read();
+                AdRewardGrant grant = reopened.Grants.Single();
+                Assert.That(reopened.Revision, Is.EqualTo(1));
+                Assert.That(grant.Weapon.Id, Is.EqualTo(childWeapon));
+                Assert.That(grant.Weapon.DefinitionId.Value, Is.EqualTo("grade1-0"));
+                Assert.That(grant.Weapon.Provenance, Is.EqualTo(WeaponProvenance.Personal));
+                Assert.That(grant.Weapon.Location.Kind, Is.EqualTo(WeaponLocationKind.Warehouse));
+                Assert.That(grant.Completion.ProviderEventId, Is.EqualTo(Event));
+                Assert.That(grant.Completion.ReservationToken, Is.EqualTo(Token));
+                Assert.That(reopened.ConfirmedUses(Account, ReservedAt.Date), Is.EqualTo(1));
+                Assert.That(reopened.ConfirmedUses(Account, now.Date), Is.Zero);
+                Assert.That(reopened.ConfirmedUses(OtherAccount, ReservedAt.Date), Is.Zero);
+
+                now = AcceptUntil.AddDays(1);
+                for (int retry = 0; retry < 10; retry++)
+                {
+                    AdRewardClaimResult reply = Service(OpenRestartedStore(), UnexpectedDraw).ProcessCallback(Provider, Proof);
+                    Assert.That(reply.Status, Is.EqualTo(AdRewardClaimStatus.AlreadyGranted));
+                    Assert.That(reply.Receipt?.Completion.ProviderEventId, Is.EqualTo(Event));
+                    Assert.That(reply.Receipt?.Weapon.Id, Is.EqualTo(childWeapon));
+                }
+                Assert.That(File.ReadAllBytes(path), Is.EqualTo(atBarrier));
+            }
+            finally
+            {
+                if (Directory.Exists(buildDirectory))
+                    Directory.Delete(buildDirectory, recursive: true);
+            }
+        }
+
+        private static void BuildChildWriter(string dotnet, string directory)
+        {
+            Assert.That(File.Exists(dotnet), Is.True, "The pinned Windows Editor must provide its bundled .NET SDK.");
+            string source = Path.Combine(Application.dataPath, "Tests", "EditMode", "AdRewardsAuthority");
+            string references = Path.Combine(directory, "references");
+            Directory.CreateDirectory(references);
+            foreach (string file in new[] { "AdRewardCrashWriter.cs", "AdRewardTestFixtures.cs", "AdRewardFileStore.cs" })
+                File.Copy(Path.Combine(source, file), Path.Combine(directory, file));
+            File.Copy(Path.Combine(source, "AdRewardCrashWriter.csproj.txt"), Path.Combine(directory, "AdRewardCrashWriter.csproj"));
+
+            string assemblies = Path.GetDirectoryName(typeof(AdRewardCompletionService).Assembly.Location)!;
+            foreach (string assembly in new[] { "AdRewardsAuthority", "Balance", "Inventory", "Weapons", "WeaponDraw" })
+            {
+                string file = "ProjectWeapon." + assembly + ".dll";
+                File.Copy(Path.Combine(assemblies, file), Path.Combine(references, file));
+            }
+
+            var start = ChildProcess(dotnet, directory, "build AdRewardCrashWriter.csproj -c Release --nologo -v quiet");
+            using Process build = Process.Start(start) ?? throw new InvalidOperationException("The child writer build did not start.");
+            Task<string> output = build.StandardOutput.ReadToEndAsync();
+            Task<string> errors = build.StandardError.ReadToEndAsync();
+            if (!build.WaitForExit(45000))
+            {
+                build.Kill();
+                build.WaitForExit(10000);
+                Assert.Fail("Building the isolated .NET child writer timed out.");
+            }
+            Assert.That(build.ExitCode, Is.Zero, () => output.GetAwaiter().GetResult() + errors.GetAwaiter().GetResult());
+        }
+
+        private static ProcessStartInfo ChildProcess(string dotnet, string directory, string arguments)
+        {
+            var start = new ProcessStartInfo(dotnet, arguments)
+            {
+                WorkingDirectory = directory,
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            start.EnvironmentVariables["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+            start.EnvironmentVariables["DOTNET_NOLOGO"] = "1";
+            return start;
         }
 
         [Test]
@@ -295,47 +419,5 @@ namespace ProjectWeapon.AdRewards.Tests
         private static VerifiedAdRewardCompletion Completion(string scope = Scope, string account = Account,
             string token = Token, string eventId = Event) => new VerifiedAdRewardCompletion(scope, account, token, eventId);
 
-        private static WeightedWeaponDraw DrawFixture()
-        {
-            var grades = new Dictionary<WeaponDefinitionId, int>();
-            IReadOnlyList<WeaponDefinitionId>[] pools = new IReadOnlyList<WeaponDefinitionId>[5];
-            for (int grade = 1; grade <= pools.Length; grade++)
-            {
-                var definitions = new WeaponDefinitionId[grade <= 3 ? 5 : 3];
-                for (int index = 0; index < definitions.Length; index++)
-                {
-                    var id = new WeaponDefinitionId($"grade{grade}-{index}");
-                    grades.Add(id, grade);
-                    definitions[index] = id;
-                }
-                pools[grade - 1] = definitions;
-            }
-            return new WeightedWeaponDraw(WeightedWeaponDraw.DraftGradeWeightsBasisPoints, pools, grades);
-        }
-
-        private sealed class ProofVerifierDouble : IRewardedAdProofVerifier
-        {
-            private readonly Dictionary<string, VerifiedAdRewardCompletion> verified = new Dictionary<string, VerifiedAdRewardCompletion>();
-
-            internal void Add(string signedCallback, VerifiedAdRewardCompletion completion) => verified.Add(signedCallback, completion);
-
-            public bool TryVerifyLevelPlayCompletion(string signedCallback, out VerifiedAdRewardCompletion completion)
-                => verified.TryGetValue(signedCallback, out completion);
-        }
-
-        private sealed class CommitDouble : IAdRewardAuthorityStore
-        {
-            private readonly IAdRewardAuthorityStore store;
-            private readonly Func<long, AdRewardGrant, bool> commit;
-
-            internal CommitDouble(IAdRewardAuthorityStore store, Func<long, AdRewardGrant, bool> commit)
-            {
-                this.store = store;
-                this.commit = commit;
-            }
-
-            public AdRewardAuthoritySnapshot Read() => store.Read();
-            public bool TryCommit(long expectedRevision, AdRewardGrant grant) => commit(expectedRevision, grant);
-        }
     }
 }
