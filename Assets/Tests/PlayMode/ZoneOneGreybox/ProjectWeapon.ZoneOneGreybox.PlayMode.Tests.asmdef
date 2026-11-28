@@ -1,0 +1,17 @@
+{
+    "name": "ProjectWeapon.ZoneOneGreybox.PlayMode.Tests",
+    "rootNamespace": "ProjectWeapon.ZoneOneGreybox.Tests",
+    "references": [
+        "ProjectWeapon.ZoneOneGreybox",
+        "ProjectWeapon.Dungeon",
+        "ProjectWeapon.Chest",
+        "ProjectWeapon.Enemies.Melee",
+        "ProjectWeapon.Enemies.Ranged",
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Loot",
+        "ProjectWeapon.Weapons",
+        "ProjectWeapon.Run",
+        "Unity.InputSystem"
+    ],
+    "optionalUnityReferences": ["TestAssemblies"]
+}
