@@ -1,0 +1,11 @@
+{
+    "name": "ProjectWeapon.Catalog",
+    "rootNamespace": "ProjectWeapon.Catalog",
+    "references": [
+        "ProjectWeapon.Inventory",
+        "ProjectWeapon.Run",
+        "ProjectWeapon.Save",
+        "ProjectWeapon.Weapons"
+    ],
+    "noEngineReferences": true
+}
